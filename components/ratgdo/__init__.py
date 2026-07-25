@@ -1,4 +1,6 @@
 from dataclasses import dataclass, field
+from pathlib import Path
+import subprocess
 
 from esphome import automation, pins
 import esphome.codegen as cg
@@ -16,6 +18,70 @@ DOMAIN = "ratgdo"
 
 ratgdo_ns = cg.esphome_ns.namespace("ratgdo")
 RATGDO = ratgdo_ns.class_("RATGDOComponent", cg.Component)
+
+
+def _get_build_git_hash() -> str:
+    """Human-readable identifier of the component source actually used
+    for this build (+ '-dirty' if uncommitted changes).
+
+    On a named branch (typical for local development), this is the short
+    git hash plus the branch name. On a detached HEAD (typical for CI/
+    official builds off main), this prefers `git describe --tags` (e.g.
+    "v1535-14-gabc1234"), which is more informative than a bare hash;
+    falls back to the bare hash if no tag history is available (e.g. a
+    shallow clone).
+    NOTE: This is careful to get the hash of the actual code being built,
+    even if it differs from a developer's local tree.
+    """
+    component_dir = Path(__file__).resolve().parent
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(component_dir), "rev-parse", "--short=8", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        if result.returncode != 0:
+            return "unknown"
+        git_hash = result.stdout.strip()
+        status = subprocess.run(
+            ["git", "-C", str(component_dir), "status", "--porcelain"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        dirty = status.returncode == 0 and bool(status.stdout.strip())
+        branch = subprocess.run(
+            ["git", "-C", str(component_dir), "symbolic-ref", "--short", "-q", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        if branch.returncode == 0 and branch.stdout.strip():
+            # Named branch: show the hash plus branch name, more useful
+            # than a possibly-distant release tag during active development.
+            identifier = git_hash + ("-dirty" if dirty else "")
+            return f"{identifier} ({branch.stdout.strip()})"
+
+        # Detached HEAD: prefer the nearest release tag and its distance.
+        describe = subprocess.run(
+            ["git", "-C", str(component_dir), "describe", "--tags", "--always"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        identifier = (
+            describe.stdout.strip()
+            if describe.returncode == 0 and describe.stdout.strip()
+            else git_hash
+        )
+        return identifier + ("-dirty" if dirty else "")
+    except (OSError, subprocess.SubprocessError):
+        return "unknown"
 
 
 @dataclass
@@ -250,6 +316,12 @@ async def register_ratgdo_child(var, config):
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
     await cg.register_component(var, config)
+
+    # Build provenance, for verifying what actually went into a given binary.
+    cg.add_define("RATGDO_BUILD_GIT_HASH", _get_build_git_hash())
+    cg.add_define("RATGDO_BUILD_YAML", CORE.config_filename)
+    cg.add_define("RATGDO_BUILD_CONFIG_HASH", f"{CORE.config_hash:08x}")
+
     pin = await cg.gpio_pin_expression(config[CONF_OUTPUT_GDO])
     cg.add(var.set_output_gdo_pin(pin))
     pin = await cg.gpio_pin_expression(config[CONF_INPUT_GDO])

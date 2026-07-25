@@ -194,6 +194,8 @@ void RATGDOComponent::loop()
 void RATGDOComponent::dump_config()
 {
     ESP_LOGCONFIG(TAG, "Setting up RATGDO...");
+    ESP_LOGCONFIG(TAG, "  Build: git=%s yaml=%s config_hash=%s",
+        RATGDO_BUILD_GIT_HASH, RATGDO_BUILD_YAML, RATGDO_BUILD_CONFIG_HASH);
     LOG_PIN("  Output GDO Pin: ", this->output_gdo_pin_);
     LOG_PIN("  Input GDO Pin: ", this->input_gdo_pin_);
     LOG_PIN("  Input Obstruction Pin: ", this->input_obst_pin_);

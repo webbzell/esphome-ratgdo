@@ -21,6 +21,11 @@ text_sensor:
   - platform: version
     id: ${id_prefix}_firmware_version
     name: "Firmware Version"
+  - platform: ratgdo
+    id: ${id_prefix}_build_info
+    type: build_info
+    name: "Firmware Build Source"
+    icon: mdi:source-branch
 
 ratgdo:
   id: ${id_prefix}
