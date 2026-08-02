@@ -7,7 +7,8 @@
 namespace esphome::ratgdo {
 
 enum RATGDOTextSensorType : uint8_t {
-    RATGDO_BUILD_INFO,
+    RATGDO_GIT_VERSION,
+    RATGDO_FIRMWARE_YAML,
 };
 
 class RATGDOTextSensor : public text_sensor::TextSensor, public RATGDOClient, public Component {

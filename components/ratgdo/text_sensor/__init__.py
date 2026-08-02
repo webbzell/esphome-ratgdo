@@ -15,7 +15,8 @@ RATGDOTextSensorType = ratgdo_ns.enum("RATGDOTextSensorType")
 
 CONF_TYPE = "type"
 TYPES = {
-    "build_info": RATGDOTextSensorType.RATGDO_BUILD_INFO,
+    "git_version": RATGDOTextSensorType.RATGDO_GIT_VERSION,
+    "firmware_yaml": RATGDOTextSensorType.RATGDO_FIRMWARE_YAML,
 }
 
 

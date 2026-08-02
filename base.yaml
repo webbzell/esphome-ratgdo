@@ -22,10 +22,15 @@ text_sensor:
     id: ${id_prefix}_firmware_version
     name: "Firmware Version"
   - platform: ratgdo
-    id: ${id_prefix}_build_info
-    type: build_info
-    name: "Firmware Build Source"
+    id: ${id_prefix}_git_version
+    type: git_version
+    name: "Git Version"
     icon: mdi:source-branch
+  - platform: ratgdo
+    id: ${id_prefix}_firmware_yaml
+    type: firmware_yaml
+    name: "Firmware YAML"
+    icon: mdi:file-code
 
 ratgdo:
   id: ${id_prefix}
