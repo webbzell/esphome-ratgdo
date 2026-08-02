@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
+import re
 import subprocess
 
 from esphome import automation, pins
@@ -20,9 +21,97 @@ ratgdo_ns = cg.esphome_ns.namespace("ratgdo")
 RATGDO = ratgdo_ns.class_("RATGDOComponent", cg.Component)
 
 
+# toggle_env.py's local-mode `external_components:` block is always exactly
+# this text (it has no file-specific variables), and its local-mode
+# `packages:` block is always this shape with one filename repeated in two
+# spots -- a backreference requires both occurrences to match. Kept in sync
+# with (but not imported from) toggle_env.py, since this file must stay
+# self-contained for consumers who fetch it via `external_components: type:
+# git` and never have that script alongside it.
+_EXTERNAL_COMPONENTS_LOCAL_ADDED = """\
+  #     type: git
+  #     url: https://github.com/ratgdo/esphome-ratgdo
+  #     ref: main
+  #   refresh: 1s
+  - source:
+      type: local
+      path: components"""
+
+_PACKAGES_LOCAL_ADDED_RE = re.compile(
+    r"^  # remote_package:\n"
+    r"  #   url: https://github\.com/ratgdo/esphome-ratgdo\n"
+    r"  #   ref: main\n"
+    r"  #   files: \[([\w.]+)\]\n"
+    r"  #   refresh: 1s\n"
+    r"  remote_package: !include\n"
+    r"    file: \1$"
+)
+
+# Both known snippets are 7 added lines; this just caps the diff size before
+# doing the (cheap but not free) exact comparison.
+_TOGGLE_MAX_CHANGED_LINES = 20
+
+
+def _is_toggle_only_diff(diff_text: str) -> bool:
+    """True if a unified diff's added lines are exactly one of
+    toggle_env.py's two known local-mode block replacements."""
+    changed_lines = [
+        dl
+        for dl in diff_text.splitlines()
+        if dl[:1] in "+-" and not dl.startswith(("+++", "---"))
+    ]
+    if not changed_lines or len(changed_lines) > _TOGGLE_MAX_CHANGED_LINES:
+        return False
+    added = "\n".join(dl[1:] for dl in changed_lines if dl[0] == "+")
+    return added == _EXTERNAL_COMPONENTS_LOCAL_ADDED or bool(
+        _PACKAGES_LOCAL_ADDED_RE.match(added)
+    )
+
+
+def _classify_dirty(repo_root: Path) -> str:
+    """Classify uncommitted changes in the repo as "" (clean), "local"
+    (every modified file is a .yaml whose only changes are toggle_env.py's
+    local/remote source toggle), or "dirty" (anything else, including
+    untracked/added/deleted files)."""
+    status = subprocess.run(
+        ["git", "-C", str(repo_root), "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=False,
+    )
+    if status.returncode != 0:
+        return "dirty"
+    lines = [line for line in status.stdout.splitlines() if line]
+    if not lines:
+        return ""
+
+    for line in lines:
+        # Porcelain v1 format is fixed-width: 2-char status, 1 space, path.
+        xy, path = line[:2], line[3:]
+        # Only a plain modification (staged and/or unstaged) to a yaml file
+        # can possibly be toggle-only; untracked/added/deleted files and
+        # non-yaml edits never are.
+        if not path.endswith(".yaml") or any(c not in " M" for c in xy):
+            return "dirty"
+
+        diff = subprocess.run(
+            ["git", "-C", str(repo_root), "diff", "-U0", "--", path],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        if diff.returncode != 0 or not _is_toggle_only_diff(diff.stdout):
+            return "dirty"
+
+    return "local"
+
+
 def _get_build_git_hash() -> str:
-    """Human-readable identifier of the component source actually used
-    for this build (+ '-dirty' if uncommitted changes).
+    """Human-readable identifier of the component source actually used for
+    this build: '-dirty' if there are genuine uncommitted changes, '-local'
+    if the only difference is toggle_env.py's local/remote source toggle.
 
     On a named branch (typical for local development), this is the short
     git hash plus the branch name. On a detached HEAD (typical for CI/
@@ -45,14 +134,21 @@ def _get_build_git_hash() -> str:
         if result.returncode != 0:
             return "unknown"
         git_hash = result.stdout.strip()
-        status = subprocess.run(
-            ["git", "-C", str(component_dir), "status", "--porcelain"],
+
+        toplevel = subprocess.run(
+            ["git", "-C", str(component_dir), "rev-parse", "--show-toplevel"],
             capture_output=True,
             text=True,
             timeout=5,
             check=False,
         )
-        dirty = status.returncode == 0 and bool(status.stdout.strip())
+        status_kind = (
+            _classify_dirty(Path(toplevel.stdout.strip()))
+            if toplevel.returncode == 0 and toplevel.stdout.strip()
+            else "dirty"
+        )
+        suffix = f"-{status_kind}" if status_kind else ""
+
         branch = subprocess.run(
             ["git", "-C", str(component_dir), "symbolic-ref", "--short", "-q", "HEAD"],
             capture_output=True,
@@ -63,7 +159,7 @@ def _get_build_git_hash() -> str:
         if branch.returncode == 0 and branch.stdout.strip():
             # Named branch: show the hash plus branch name, more useful
             # than a possibly-distant release tag during active development.
-            identifier = git_hash + ("-dirty" if dirty else "")
+            identifier = git_hash + suffix
             return f"{identifier} ({branch.stdout.strip()})"
 
         # Detached HEAD: prefer the nearest release tag and its distance.
@@ -79,7 +175,7 @@ def _get_build_git_hash() -> str:
             if describe.returncode == 0 and describe.stdout.strip()
             else git_hash
         )
-        return identifier + ("-dirty" if dirty else "")
+        return identifier + suffix
     except (OSError, subprocess.SubprocessError):
         return "unknown"
 
