@@ -57,6 +57,7 @@ void RATGDOSwitch::setup()
         break;
 #endif
     case SwitchType::RATGDO_AUTO_CLOSE:
+        this->publish_state(false); // switch starts in off position
         this->parent_->subscribe_ttc_state([this](TtcState state) {
             this->publish_state(ttc_is_counting(state));
         });
@@ -91,19 +92,28 @@ void RATGDOSwitch::write_state(bool state)
         this->publish_state(state);
         break;
 #endif
-    case SwitchType::RATGDO_AUTO_CLOSE:
-        // NOTE: No publish_state() call here: The auto_close switch's
-        // published state comes entirely from the subscribe_ttc_state()
-        // callback, not from write_state(). ttc_toggle_hold() guards
-        // against being called while ttc_state is UNKNOWN itself, so
-        // that doesn't need checking here either.
-        if (state != ttc_is_counting(*this->parent_->ttc_state)) {
-            // The user interface is a switch, but the message protocol
-            // is toggle. So only send a ttc toggle message if the state
-            // really needs to change.
-            this->parent_->ttc_toggle_hold();
+    case SwitchType::RATGDO_AUTO_CLOSE: { // This brace block scopes ts; forced here by clang-format
+        auto& ts = this->parent_->ttc_state;
+        if (!state) { // User wants to turn switch off (HOLD)
+            if (ttc_is_counting(*ts)) {
+                this->parent_->ttc_toggle_hold();
+            }
+        } else { // User wants to turn switch on (RELEASE)
+            if (!ttc_is_counting(*ts)) {
+                this->parent_->ttc_toggle_hold();
+                if (ttc_is_unknown(*ts)) {
+                    // If TTC is still in the unknown state, that means ttc_toggle_hold() blocked the
+                    // user from turning the switch on (e.g. because the door isn't open). The client's
+                    // UI (e.g. Home Assistant) has already optimistically shown the switch as "on."
+                    // Doing a publish_state(false) here wouldn't work because internally the switch
+                    // is still "false" and the UI notification will be suppressed. So, double publish,
+                    // first to true (on) to match the UI, then to false (off) to put it back.
+                    this->publish_state(true);
+                    this->publish_state(false);
+                }
+            }
         }
-        break;
+    } break;
     default:
         break;
     }

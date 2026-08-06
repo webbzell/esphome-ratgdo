@@ -276,6 +276,7 @@ public:
     void start_or_sync_ttc_countdown(uint16_t seconds);
     void apply_ttc_toggle();
     void reset_ttc_state();
+    void set_ttc_state_and_countdown(TtcState state, uint16_t countdown);
 
     // Learn & Paired
     void activate_learn();

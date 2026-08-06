@@ -226,28 +226,26 @@ void RATGDOComponent::on_shutdown()
 //
 void RATGDOComponent::start_or_sync_ttc_countdown(uint16_t seconds)
 {
-    this->ttc_countdown = seconds;
-    this->ttc_state = TtcState::COUNTING;
+    this->set_ttc_state_and_countdown(TtcState::COUNTING, seconds);
     this->cancel_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG);
     this->set_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG, TTC_COUNTDOWN_WATCHDOG_TIMEOUT * 1000, [this]() {
         // Didn't see a TTC_COUNTDOWN broadcast within TTC_COUNTDOWN_WATCHDOG_TIMEOUT (90) seconds.
         // Assume comms failure and transition to UNKNOWN state.
         this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
-        this->ttc_countdown = 0;
-        this->ttc_state = TtcState::UNKNOWN;
+        this->set_ttc_state_and_countdown(TtcState::UNKNOWN, 0);
     });
     this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
     this->set_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT, TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL * 1000, [this]() {
         uint16_t current = *this->ttc_countdown;
         if (current > TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL) {
-            this->ttc_countdown = current - TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL;
+            uint16_t next = current - TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL;
+            this->set_ttc_state_and_countdown(TtcState::COUNTING, next);
         } else {
             // Local estimate ran out before either a new broadcast or the
             // watchdog fired. From here we wait for the door close,
             // or the watchdog timer to fire.
             this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
-            this->ttc_countdown = 0;
-            this->ttc_state = TtcState::COUNTING_FINISHED;
+            this->set_ttc_state_and_countdown(TtcState::COUNTING_FINISHED, 0);
         }
     });
 }
@@ -1154,8 +1152,7 @@ void RATGDOComponent::apply_ttc_toggle()
         // countdown watchdog, and go to HOLDING state.
         this->cancel_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG);
         this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
-        this->ttc_countdown = 0;
-        this->ttc_state = TtcState::HOLDING;
+        this->set_ttc_state_and_countdown(TtcState::HOLDING, 0);
     } else if (*this->ttc_state == TtcState::HOLDING) {
         // Release hold. Restart the local countdown and refresh the TTC
         // limit from the next countdown broadcast.
@@ -1171,8 +1168,24 @@ void RATGDOComponent::reset_ttc_state()
 {
     this->cancel_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG);
     this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
-    this->ttc_state = TtcState::UNKNOWN;
-    this->ttc_countdown = 0;
+    this->set_ttc_state_and_countdown(TtcState::UNKNOWN, 0);
+}
+
+// Sets ttc_state and ttc_countdown together.
+//
+// Force notify is needed for cases where countdown doesn't change but
+// state does change (e.g. changing from 0 to NA), because the plain
+// assignment won't trigger a notification when the raw ttc_countdown
+// stays the same, but it is needed to update the UI.
+void RATGDOComponent::set_ttc_state_and_countdown(TtcState state, uint16_t countdown)
+{
+    bool state_changed = (state != *this->ttc_state);
+    bool countdown_changed = (countdown != *this->ttc_countdown);
+    this->ttc_state = state;
+    this->ttc_countdown = countdown;
+    if (state_changed && !countdown_changed) {
+        this->ttc_countdown.notify();
+    }
 }
 
 // Learn functions
