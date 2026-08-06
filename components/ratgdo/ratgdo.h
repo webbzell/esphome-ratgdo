@@ -170,7 +170,7 @@ public:
     single_observable<MotionState> motion_state { MotionState::UNKNOWN };
     single_observable<LearnState> learn_state { LearnState::UNKNOWN };
 
-    single_observable<TtcState> ttc_state { TtcState::UNKNOWN };
+    single_observable<TtcState> ttc_state { TtcState::OFF };
     single_observable<uint16_t> ttc_countdown { 0 };
     single_observable<uint16_t> ttc_limit { 0 };
 

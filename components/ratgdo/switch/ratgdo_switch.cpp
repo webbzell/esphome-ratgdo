@@ -92,25 +92,30 @@ void RATGDOSwitch::write_state(bool state)
         this->publish_state(state);
         break;
 #endif
-    case SwitchType::RATGDO_AUTO_CLOSE: { // This brace block scopes ts; forced here by clang-format
+    case SwitchType::RATGDO_AUTO_CLOSE: { // Brace block needed to scope ts; open is forced here by clang-format
         auto& ts = this->parent_->ttc_state;
         if (!state) { // User wants to turn switch off (HOLD)
             if (ttc_is_counting(*ts)) {
                 this->parent_->ttc_toggle_hold();
             }
+            // No else needed here because switch is already off and we're not counting.
         } else { // User wants to turn switch on (RELEASE)
-            if (!ttc_is_counting(*ts)) {
+            if (ttc_is_holding(*ts)) {
                 this->parent_->ttc_toggle_hold();
-                if (ttc_is_unknown(*ts)) {
-                    // If TTC is still in the unknown state, that means ttc_toggle_hold() blocked the
-                    // user from turning the switch on (e.g. because the door isn't open). The client's
-                    // UI (e.g. Home Assistant) has already optimistically shown the switch as "on."
-                    // Doing a publish_state(false) here wouldn't work because internally the switch
-                    // is still "false" and the UI notification will be suppressed. So, double publish,
-                    // first to true (on) to match the UI, then to false (off) to put it back.
-                    this->publish_state(true);
-                    this->publish_state(false);
-                }
+            }
+            if (ttc_is_off(*ts)) {
+                // If TTC tracking is still off now, we need to correct the UI.
+                // There are several reasons this can happen, but usually it is
+                // because we were not holding when the UI was switched to ON.
+                // Regardless of why, the UI (e.g. ESPHome web UI) has already
+                // optimistically shown the switch as "on," so we need to fix that.
+                // But just calling publish_state(false) here won't work
+                // because internally the switch is still "false" and
+                // the notification will be suppressed.
+                // So the solution is to double publish, first to true (on) to match
+                // the UI, then to false (off) to put it back.
+                this->publish_state(true);
+                this->publish_state(false);
             }
         }
     } break;

@@ -230,9 +230,9 @@ void RATGDOComponent::start_or_sync_ttc_countdown(uint16_t seconds)
     this->cancel_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG);
     this->set_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG, TTC_COUNTDOWN_WATCHDOG_TIMEOUT * 1000, [this]() {
         // Didn't see a TTC_COUNTDOWN broadcast within TTC_COUNTDOWN_WATCHDOG_TIMEOUT (90) seconds.
-        // Assume comms failure and transition to UNKNOWN state.
+        // Assume comms failure and turn TTC tracking off.
         this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
-        this->set_ttc_state_and_countdown(TtcState::UNKNOWN, 0);
+        this->set_ttc_state_and_countdown(TtcState::OFF, 0);
     });
     this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
     this->set_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT, TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL * 1000, [this]() {
@@ -1133,10 +1133,9 @@ void RATGDOComponent::lock_toggle()
 
 void RATGDOComponent::ttc_toggle_hold()
 {
-    if (ttc_is_unknown(*this->ttc_state)) {
-        // Don't transmit while we haven't observed any TTC activity on the
-        // wire this cycle: we can't meaningfully pause or resume something
-        // we have no confirmed state for.
+    if (ttc_is_off(*this->ttc_state)) {
+        // Don't transmit while TTC is off: we can't meaningfully
+        // pause or resume something that isn't currently running.
         return;
     }
     ESP_LOGD(TAG, "Toggle TTC");
@@ -1155,7 +1154,7 @@ void RATGDOComponent::apply_ttc_toggle()
         this->cancel_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG);
         this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
         this->set_ttc_state_and_countdown(TtcState::HOLDING, 0);
-    } else if (*this->ttc_state == TtcState::HOLDING) {
+    } else if (ttc_is_holding(*this->ttc_state)) {
         // Release hold. Restart the local countdown and refresh the TTC
         // limit from the next countdown broadcast.
         this->flags_.ttc_limit_learned = false;
@@ -1163,14 +1162,14 @@ void RATGDOComponent::apply_ttc_toggle()
     }
 }
 
-// Resets local TTC state to UNKNOWN and cancels its timers.
+// Resets local TTC state to OFF and cancels its timers.
 // TTC only runs while the door is fully open, so this is called
 // for all other states.
 void RATGDOComponent::reset_ttc_state()
 {
     this->cancel_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG);
     this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
-    this->set_ttc_state_and_countdown(TtcState::UNKNOWN, 0);
+    this->set_ttc_state_and_countdown(TtcState::OFF, 0);
 }
 
 // Sets ttc_state and ttc_countdown together.

@@ -148,21 +148,29 @@ struct TtcToggleHold {
 };
 
 ENUM(TtcState, uint8_t,
-    (UNKNOWN, 0),
+    (OFF, 0),
     (COUNTING, 1),
     (COUNTING_FINISHED, 2),
     (HOLDING, 3))
 
-// True before any TTC activity has been observed on the wire this cycle.
-inline constexpr bool ttc_is_unknown(TtcState state)
+// True when TTC countdown tracking isn't currently active: the door isn't
+// open, no broadcast has been seen yet this cycle, or the watchdog assumed
+// comms failure and gave up.
+inline constexpr bool ttc_is_off(TtcState state)
 {
-    return state == TtcState::UNKNOWN;
+    return state == TtcState::OFF;
 }
 
 // True when counting down or just finished
 inline constexpr bool ttc_is_counting(TtcState state)
 {
     return state == TtcState::COUNTING || state == TtcState::COUNTING_FINISHED;
+}
+
+// True when the door is holding open (and the countdown can be restarted).
+inline constexpr bool ttc_is_holding(TtcState state)
+{
+    return state == TtcState::HOLDING;
 }
 
 } // namespace esphome::ratgdo
