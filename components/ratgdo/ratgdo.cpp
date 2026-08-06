@@ -598,7 +598,9 @@ void RATGDOComponent::received(const TtcCountdown countdown)
         this->ttc_limit = countdown.seconds;
         this->flags_.ttc_limit_learned = true;
     }
-    this->start_or_sync_ttc_countdown(countdown.seconds);
+    if (ds == DoorState::OPENING || ds == DoorState::OPEN) {
+        this->start_or_sync_ttc_countdown(countdown.seconds);
+    }
 }
 
 void RATGDOComponent::received(const TtcToggleHold)
