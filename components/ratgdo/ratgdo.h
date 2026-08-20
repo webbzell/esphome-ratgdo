@@ -74,6 +74,7 @@ typedef Parented<RATGDOComponent> RATGDOClient;
 const float DOOR_POSITION_UNKNOWN = -1.0;
 const float DOOR_DELTA_UNKNOWN = -2.0;
 const uint8_t PAIRED_DEVICES_UNKNOWN = 0xFF;
+const uint16_t GDO_VERSION_UNKNOWN = 0xFFFF; // packed as (major<<8)|minor
 
 struct RATGDOStore {
     volatile uint32_t obstruction_low_count = 0; // count obstruction low pulses
@@ -144,6 +145,7 @@ public:
 #endif
 
     single_observable<uint16_t> openings { 0 }; // number of times the door has been opened
+    single_observable<uint16_t> gdo_version { GDO_VERSION_UNKNOWN };
     single_observable<uint8_t> paired_total { PAIRED_DEVICES_UNKNOWN };
     single_observable<uint8_t> paired_remotes { PAIRED_DEVICES_UNKNOWN };
     single_observable<uint8_t> paired_keypads { PAIRED_DEVICES_UNKNOWN };
@@ -219,6 +221,7 @@ public:
     void received(const MotionState motion_state);
     void received(const LearnState light_state);
     void received(const Openings openings);
+    void received(const OpenerVersion version);
     void received(const TimeToClose ttc);
     void received(const PairedDeviceCount pdc);
     void received(const BatteryState pdc);
@@ -295,6 +298,7 @@ public:
     // button functionality
     void query_status();
     void query_openings();
+    void query_version();
     void sync();
 
     using Component::cancel_interval;
@@ -356,6 +360,8 @@ public:
 #endif
     template <typename F>
     void subscribe_openings(F&& f);
+    template <typename F>
+    void subscribe_gdo_version(F&& f);
     template <typename F>
     void subscribe_paired_devices_total(F&& f);
     template <typename F>
@@ -530,6 +536,7 @@ namespace scheduler_ids {
         DEFER_CLOSING_DURATION,
         DEFER_CLOSING_DELAY,
         DEFER_OPENINGS,
+        DEFER_GDO_VERSION,
         DEFER_PAIRED_TOTAL,
         DEFER_PAIRED_REMOTES,
         DEFER_PAIRED_KEYPADS,
@@ -610,6 +617,14 @@ void RATGDOComponent::subscribe_openings(F&& f)
 {
     this->openings.subscribe([this, f](uint16_t state) {
         defer(scheduler_ids::DEFER_OPENINGS, [f, state] { f(state); });
+    });
+}
+
+template <typename F>
+void RATGDOComponent::subscribe_gdo_version(F&& f)
+{
+    this->gdo_version.subscribe([this, f](uint16_t state) {
+        defer(scheduler_ids::DEFER_GDO_VERSION, [f, state] { f(state); });
     });
 }
 

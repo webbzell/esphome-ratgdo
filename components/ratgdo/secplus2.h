@@ -31,7 +31,8 @@ namespace secplus2 {
     typedef uint8_t WirePacket[PACKET_LENGTH];
 
     ENUM_SPARSE(CommandType, uint16_t,
-        (UNKNOWN, 0x000),
+        (UNKNOWN, 0x000), // also the wire value of the GDO version query (empty payload, sent by wall controls) - can't be named separately here since ENUM_SPARSE's reverse-lookup switch can't have two cases for the same value; see Secplus2::query_version()
+        (VERSION, 0x001), // response to the (unnamed, see above) version query; byte1=major, byte2=minor - confirmed against a wall panel's diagnostic-menu LCD showing the same "major.minor" value
         (GET_STATUS, 0x080),
         (STATUS, 0x081),
         (OBST_1, 0x084), // sent when an obstruction happens?
@@ -77,6 +78,11 @@ namespace secplus2 {
         uint8_t nibble;
         uint8_t byte1;
         uint8_t byte2;
+        // Sender ID this command was decoded from - only meaningful for
+        // commands returned by decode_packet() (i.e. received off the wire).
+        // Left at 0 (never a real device ID in practice) for commands we
+        // construct ourselves to transmit.
+        uint32_t sender { 0 };
 
         Command()
             : type(CommandType::UNKNOWN)
@@ -147,6 +153,7 @@ namespace secplus2 {
 
         void query_status();
         void query_openings();
+        void query_version();
         void query_paired_devices();
         void query_paired_devices(PairedDevice kind);
         void clear_paired_devices(PairedDevice kind);
@@ -173,6 +180,12 @@ namespace secplus2 {
         uint32_t rx_msg_start_ { 0 };
         uint32_t rx_last_read_ { 0 };
         uint32_t last_status_ms_ { 0 };
+        // Learned from STATUS broadcasts (GDO-exclusive - only the opener
+        // itself has door/light/lock/obstruction/learn state to report), and
+        // used to filter responses to broadcast-style queries (e.g. the
+        // version query) that other paired devices may also answer. 0 means
+        // not yet learned - never a real device ID in practice.
+        uint32_t gdo_sender_id_ { 0 };
 
         // Larger structures
         single_observable<uint32_t> rolling_code_counter_ { 0 };

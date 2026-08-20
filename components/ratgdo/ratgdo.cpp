@@ -493,6 +493,12 @@ void RATGDOComponent::received(const Openings openings)
     }
 }
 
+void RATGDOComponent::received(const OpenerVersion version)
+{
+    this->gdo_version = static_cast<uint16_t>((version.major << 8) | version.minor);
+    ESP_LOGD(TAG, "GDO version: %d.%d", version.major, version.minor);
+}
+
 void RATGDOComponent::received(const PairedDeviceCount pdc)
 {
     ESP_LOGD(TAG, "Paired device count, kind=%s count=%d",
@@ -710,6 +716,11 @@ void RATGDOComponent::query_status() { this->protocol_->call(QueryStatus { }); }
 void RATGDOComponent::query_openings()
 {
     this->protocol_->call(QueryOpenings { });
+}
+
+void RATGDOComponent::query_version()
+{
+    this->protocol_->call(QueryVersion { });
 }
 
 void RATGDOComponent::query_paired_devices()

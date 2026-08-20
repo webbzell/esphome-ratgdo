@@ -21,6 +21,11 @@ text_sensor:
   - platform: version
     id: ${id_prefix}_firmware_version
     name: "Firmware Version"
+  - platform: ratgdo
+    id: ${id_prefix}_gdo_version
+    entity_category: diagnostic
+    name: "GDO version"
+    icon: mdi:information-outline
 
 ratgdo:
   id: ${id_prefix}
@@ -264,6 +269,15 @@ button:
       then:
         lambda: !lambda |-
           id($id_prefix).query_openings();
+
+  - platform: template
+    id: ${id_prefix}_query_gdo_version
+    name: "Query GDO version"
+    entity_category: diagnostic
+    on_press:
+      then:
+        lambda: !lambda |-
+          id($id_prefix).query_version();
 
   - platform: template
     id: ${id_prefix}_sync

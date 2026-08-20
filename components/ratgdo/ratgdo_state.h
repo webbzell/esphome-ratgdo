@@ -140,4 +140,12 @@ struct TimeToClose {
     uint16_t seconds;
 };
 
+// GDO firmware version, from the same query the wall panel's diagnostic
+// menu uses (confirmed by live comparison: byte1=3, byte2=13 matched the
+// wall panel's LCD showing "3.13").
+struct OpenerVersion {
+    uint8_t major;
+    uint8_t minor;
+};
+
 } // namespace esphome::ratgdo

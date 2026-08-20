@@ -180,6 +180,8 @@ namespace secplus2 {
             this->send_command(CommandType::GET_STATUS);
         } else if (args.tag == Tag::query_openings) {
             this->send_command(CommandType::GET_OPENINGS);
+        } else if (args.tag == Tag::query_version) {
+            this->query_version();
         } else if (args.tag == Tag::get_rolling_code_counter) {
             return Result(RollingCodeCounter { std::addressof(this->rolling_code_counter_) });
         } else if (args.tag == Tag::set_rolling_code_counter) {
@@ -217,6 +219,14 @@ namespace secplus2 {
     void Secplus2::query_openings()
     {
         this->send_command(CommandType::GET_OPENINGS);
+    }
+
+    // CommandType::UNKNOWN doubles as the version query's wire value (0x000)
+    // - see the comment on that enum entry in secplus2.h. nibble=0 matches
+    // what a wall panel was observed sending.
+    void Secplus2::query_version()
+    {
+        this->send_command(CommandType::UNKNOWN);
     }
 
     void Secplus2::query_paired_devices()
@@ -387,7 +397,9 @@ namespace secplus2 {
 
         ESP_LOG1(TAG, "cmd=%03x (%s) byte2=%02x byte1=%02x nibble=%01x", cmd, LOG_STR_ARG(CommandType_to_string(cmd_type)), byte2, byte1, nibble);
 
-        return Command { cmd_type, nibble, byte1, byte2 };
+        Command result { cmd_type, nibble, byte1, byte2 };
+        result.sender = static_cast<uint32_t>(fixed & 0xFFFFFFFF);
+        return result;
     }
 
     void Secplus2::handle_command(const Command& cmd)
@@ -396,6 +408,7 @@ namespace secplus2 {
 
         if (cmd.type == CommandType::STATUS) {
             this->last_status_ms_ = App.get_loop_component_start_time();
+            this->gdo_sender_id_ = cmd.sender;
             this->ratgdo_->received(to_DoorState(cmd.nibble, DoorState::UNKNOWN));
             this->ratgdo_->received(to_LightState((cmd.byte2 >> 1) & 1, LightState::UNKNOWN));
             this->ratgdo_->received(to_LockState((cmd.byte2 & 1), LockState::UNKNOWN));
@@ -413,6 +426,16 @@ namespace secplus2 {
             this->ratgdo_->received(MotionState::DETECTED);
         } else if (cmd.type == CommandType::OPENINGS) {
             this->ratgdo_->received(Openings { static_cast<uint16_t>((cmd.byte1 << 8) | cmd.byte2), cmd.nibble });
+        } else if (cmd.type == CommandType::VERSION) {
+            // The version query is effectively a broadcast - other paired
+            // wall controls have been observed answering it with their own
+            // version too, not just the GDO. Only trust a response from the
+            // GDO's own (learned-from-STATUS) sender ID; silently drop
+            // anything else rather than risk displaying another device's
+            // version as if it were the GDO's.
+            if (this->gdo_sender_id_ != 0 && cmd.sender == this->gdo_sender_id_) {
+                this->ratgdo_->received(OpenerVersion { cmd.byte1, cmd.byte2 });
+            }
         } else if (cmd.type == CommandType::SET_TTC) {
             this->ratgdo_->received(TimeToClose { static_cast<uint16_t>((cmd.byte1 << 8) | cmd.byte2) });
         } else if (cmd.type == CommandType::PAIRED_DEVICES) {
