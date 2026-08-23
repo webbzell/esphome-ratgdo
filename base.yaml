@@ -21,6 +21,11 @@ text_sensor:
   - platform: version
     id: ${id_prefix}_firmware_version
     name: "Firmware Version"
+  - platform: ratgdo
+    id: ${id_prefix}_ttc_state
+    type: ttc_state
+    name: "Auto close state"
+    icon: mdi:timer-outline
 
 ratgdo:
   id: ${id_prefix}
