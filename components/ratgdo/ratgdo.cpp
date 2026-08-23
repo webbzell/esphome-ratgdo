@@ -229,8 +229,7 @@ void RATGDOComponent::restart_ttc_watchdog()
         // Assume comms failure - state, limit, and countdown are no longer
         // trustworthy, so fall back to UNKNOWN and re-sync, same as during boot
         this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
-        this->ttc_state = TtcState::UNKNOWN;
-        this->ttc_countdown = TTC_COUNTDOWN_UNKNOWN;
+        this->set_ttc_state_and_countdown(TtcState::UNKNOWN, TTC_COUNTDOWN_UNKNOWN);
         this->ttc_limit = TTC_LIMIT_UNKNOWN;
         this->sync();
     });
@@ -246,11 +245,11 @@ void RATGDOComponent::start_ttc_decrementer()
             return;
         }
         if (current > TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL) {
-            this->ttc_countdown = current - TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL;
+            this->set_ttc_state_and_countdown(*this->ttc_state, current - TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL);
         } else {
             // Local countdown ran out. No more decrement. Just wait for door to close.
             this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
-            this->ttc_countdown = 0;
+            this->set_ttc_state_and_countdown(*this->ttc_state, 0);
         }
     });
 }
@@ -585,7 +584,7 @@ void RATGDOComponent::received(const TtcCountdown countdown)
         // Shouldn't happen - TTC only runs while the door is open. Flag just in case.
         ESP_LOGW(TAG, "Unexpected TTC countdown broadcast (%ds) received while door is %s", countdown.seconds, LOG_STR_ARG(DoorState_to_string(ds)));
     }
-    this->ttc_countdown = countdown.seconds;
+    this->set_ttc_state_and_countdown(*this->ttc_state, countdown.seconds);
     if (ttc_is_counting(*this->ttc_state)) {
         this->restart_ttc_watchdog();
     }
@@ -643,10 +642,12 @@ void RATGDOComponent::received(const TtcStateMsg msg)
 
     bool was_counting = ttc_is_counting(*this->ttc_state);
 
-    if (!ttc_is_counting(state) && !ttc_is_initializing(state)) {
-        this->ttc_countdown = 0;
+    uint16_t countdown = 0;
+    if (ttc_is_counting(state) || ttc_is_initializing(state)) {
+        countdown = *this->ttc_countdown;
     }
-    this->ttc_state = state;
+
+    this->set_ttc_state_and_countdown(state, countdown);
 
     if (ttc_is_counting(state)) {
         if (!was_counting) {
@@ -1229,6 +1230,23 @@ void RATGDOComponent::apply_ttc_toggle()
     } else if (*this->ttc_state == TtcState::ENABLED_HOLDING) {
         // Release hold. Wait for the GDO's TTC_STATE broadcast to tell us
         // what's next (COUNTING or READY).
+    }
+}
+
+// Sets ttc_state and ttc_countdown together.
+//
+// Force notify is needed for cases where countdown doesn't change but
+// state does change (e.g. changing from 0 to NA), because the plain
+// assignment won't trigger a notification when the raw ttc_countdown
+// stays the same, but it is needed to update the UI.
+void RATGDOComponent::set_ttc_state_and_countdown(TtcState state, uint16_t countdown)
+{
+    bool state_changed = (state != *this->ttc_state);
+    bool countdown_changed = (countdown != *this->ttc_countdown);
+    this->ttc_state = state;
+    this->ttc_countdown = countdown;
+    if (state_changed && !countdown_changed) {
+        this->ttc_countdown.notify();
     }
 }
 
