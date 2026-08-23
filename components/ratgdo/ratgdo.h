@@ -177,7 +177,7 @@ public:
     single_observable<uint16_t> ttc_limit { TTC_LIMIT_UNKNOWN };
 
     static constexpr uint16_t TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL = 5;
-    static constexpr uint16_t TTC_COUNTDOWN_WATCHDOG_TIMEOUT = 90; // for explanation, see start_or_sync_ttc_countdown()
+    static constexpr uint16_t TTC_COUNTDOWN_WATCHDOG_TIMEOUT = 90; // for explanation, see restart_ttc_watchdog()
 
 #ifdef RATGDO_USE_VEHICLE_SENSORS
     observable<VehicleDetectedState, RATGDO_MAX_VEHICLE_DETECTED_SUBSCRIBERS> vehicle_detected_state { VehicleDetectedState::NO };
@@ -276,7 +276,9 @@ public:
 
     // TTC (time-to-close)
     void ttc_toggle_hold();
-    void start_or_sync_ttc_countdown(uint16_t seconds);
+    void restart_ttc_watchdog();
+    void start_ttc_decrementer();
+    void stop_ttc_watchdog_and_decrementer();
     void apply_ttc_toggle();
 
     // Learn & Paired
