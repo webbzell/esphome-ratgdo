@@ -29,6 +29,9 @@ public:
 
 protected:
     RATGDOSensorType ratgdo_sensor_type_;
+
+private:
+    void publish_unavailable();
 };
 
 } // namespace esphome::ratgdo
