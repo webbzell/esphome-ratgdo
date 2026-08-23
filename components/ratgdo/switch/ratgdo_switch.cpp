@@ -57,8 +57,9 @@ void RATGDOSwitch::setup()
         break;
 #endif
     case SwitchType::RATGDO_AUTO_CLOSE:
+        this->publish_state(false); // switch starts in off position
         this->parent_->subscribe_ttc_state([this](TtcState state) {
-            this->publish_state(ttc_is_counting(state));
+            this->publish_state(ttc_is_ready(state) || ttc_is_counting(state));
         });
         break;
     default:
@@ -91,19 +92,19 @@ void RATGDOSwitch::write_state(bool state)
         this->publish_state(state);
         break;
 #endif
-    case SwitchType::RATGDO_AUTO_CLOSE:
-        // NOTE: No publish_state() call here: The auto_close switch's
-        // published state comes entirely from the subscribe_ttc_state()
-        // callback, not from write_state(). ttc_toggle_hold() guards
-        // against being called while ttc_state is UNKNOWN itself, so
-        // that doesn't need checking here either.
-        if (state != ttc_is_counting(*this->parent_->ttc_state)) {
-            // The user interface is a switch, but the message protocol
-            // is toggle. So only send a ttc toggle message if the state
-            // really needs to change.
-            this->parent_->ttc_toggle_hold();
+    case SwitchType::RATGDO_AUTO_CLOSE: { // Brace block needed to scope ts; open is forced here by clang-format
+        auto& ts = this->parent_->ttc_state;
+        if (!state) { // User wants to turn switch off (ENABLED_HOLDING)
+            if (ttc_is_ready(*ts) || ttc_is_counting(*ts)) {
+                this->parent_->ttc_toggle_hold();
+            }
+            // No else block needed - switch is already off (ENABLED_HOLDING/DISABLED/UNKNOWN).
+        } else { // User wants to turn switch on (RELEASE)
+            if (ttc_is_holding(*ts)) {
+                this->parent_->ttc_toggle_hold();
+            }
         }
-        break;
+    } break;
     default:
         break;
     }

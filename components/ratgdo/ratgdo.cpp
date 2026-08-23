@@ -227,7 +227,7 @@ void RATGDOComponent::on_shutdown()
 void RATGDOComponent::start_or_sync_ttc_countdown(uint16_t seconds)
 {
     this->ttc_countdown = seconds;
-    this->ttc_state = TtcState::COUNTING;
+    this->ttc_state = TtcState::ENABLED_COUNTING;
     this->cancel_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG);
     this->set_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG, TTC_COUNTDOWN_WATCHDOG_TIMEOUT * 1000, [this]() {
         // Didn't see a TTC_COUNTDOWN broadcast within TTC_COUNTDOWN_WATCHDOG_TIMEOUT (90) seconds.
@@ -247,7 +247,6 @@ void RATGDOComponent::start_or_sync_ttc_countdown(uint16_t seconds)
             // or the watchdog timer to fire.
             this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
             this->ttc_countdown = 0;
-            this->ttc_state = TtcState::COUNTING_FINISHED;
         }
     });
 }
@@ -582,10 +581,63 @@ void RATGDOComponent::received(const TtcCountdown countdown)
     this->start_or_sync_ttc_countdown(countdown.seconds);
 }
 
+// Just log when we receive TtcAction (e.g. when wall control hold/release is pressed)
+// We don't do anything because the GDO will respond with an updated state,
+// and that's what we follow.
 void RATGDOComponent::received(const TtcAction action)
 {
-    ESP_LOGD(TAG, "TTC_ACTION observed: 0x%02x", action.value);
-    this->apply_ttc_toggle();
+    using secplus2::TtcActionCode;
+    using secplus2::TtcActionCode_to_string;
+    auto code = static_cast<TtcActionCode>(action.value);
+    ESP_LOGD(TAG, "TTC_ACTION from wire: %s (0x%02x)", LOG_STR_ARG(TtcActionCode_to_string(code)), action.value);
+}
+
+// Handle TTC_STATE messages. Most are from the GDO, but some are not.
+// This is what RATGDO follows to know whether the TTC is disabled,
+// enabled, counting, holding, etc. The state value is in byte1.
+//
+// WALL_CONTROL_ACK is from the wall control and seems to acknowledge a GDO command.
+// INITIALIZING_ENABLED/INITIALIZING_DISABLED are GDO-side TTC startup messages seen after reboot,
+// and progress forward by opening the door. CLOSING_ALERT is the GDO's
+// light-flash/beeper warning after the countdown ends, roughly 8s before
+// the door actually starts closing (confirmed via live capture).
+void RATGDOComponent::received(const TtcStateMsg msg)
+{
+    using secplus2::TtcStateCode;
+    using secplus2::TtcStateCode_to_string;
+    auto code = static_cast<TtcStateCode>(msg.value);
+
+    ESP_LOGD(TAG, "TTC state from wire: %s (0x%02x)", LOG_STR_ARG(TtcStateCode_to_string(code)), msg.value);
+
+    switch (code) {
+    case TtcStateCode::ENABLED_COUNTING:
+        this->ttc_state = TtcState::ENABLED_COUNTING;
+        break;
+    case TtcStateCode::ENABLED_HOLDING:
+        this->ttc_state = TtcState::ENABLED_HOLDING;
+        break;
+    case TtcStateCode::ENABLED_READY:
+        this->ttc_state = TtcState::ENABLED_READY;
+        break;
+    case TtcStateCode::DISABLED:
+        this->ttc_state = TtcState::DISABLED;
+        break;
+    case TtcStateCode::INITIALIZING_ENABLED:
+        this->ttc_state = TtcState::INITIALIZING_ENABLED;
+        break;
+    case TtcStateCode::INITIALIZING_DISABLED:
+        this->ttc_state = TtcState::INITIALIZING_DISABLED;
+        break;
+    case TtcStateCode::CLOSING_ALERT:
+        this->ttc_state = TtcState::CLOSING_ALERT;
+        break;
+    case TtcStateCode::WALL_CONTROL_ACK:
+        // Not a real TTC state - just a wall control acknowledging a
+        // TTC_ACTION it observed. Nothing to update.
+        return;
+    default:
+        return; // genuinely unrecognized byte1 - already logged above
+    }
 }
 
 void RATGDOComponent::received(const BatteryState battery_state)
@@ -1157,8 +1209,8 @@ void RATGDOComponent::apply_ttc_toggle()
         this->cancel_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG);
         this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
         this->ttc_countdown = 0;
-        this->ttc_state = TtcState::HOLDING;
-    } else if (*this->ttc_state == TtcState::HOLDING) {
+        this->ttc_state = TtcState::ENABLED_HOLDING;
+    } else if (*this->ttc_state == TtcState::ENABLED_HOLDING) {
         // Release hold. Restart the local countdown.
         this->start_or_sync_ttc_countdown(*this->ttc_limit);
     }
