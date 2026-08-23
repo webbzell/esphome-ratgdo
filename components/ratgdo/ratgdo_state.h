@@ -149,22 +149,62 @@ struct TtcAction {
     uint8_t value;
 };
 
+// Raw byte1 from a TTC_STATE message, not yet mapped to TtcState.
+struct TtcStateMsg {
+    uint8_t value;
+};
+
 ENUM(TtcState, uint8_t,
     (UNKNOWN, 0),
-    (COUNTING, 1),
-    (COUNTING_FINISHED, 2),
-    (HOLDING, 3))
+    (ENABLED_READY, 1),
+    (ENABLED_COUNTING, 2),
+    (ENABLED_HOLDING, 3),
+    (DISABLED, 4),
+    (INITIALIZING_ENABLED, 5),
+    (INITIALIZING_DISABLED, 6),
+    (CLOSING_ALERT, 7)) // countdown ended; light-flash/beeper warning before the door actually closes
 
-// True before any TTC activity has been observed on the wire this cycle.
+// True when TTC's state hasn't been learned yet this power cycle.
 inline constexpr bool ttc_is_unknown(TtcState state)
 {
     return state == TtcState::UNKNOWN;
 }
 
-// True when counting down or just finished
+// True when TTC is enabled but not currently active: the door isn't open,
+// no broadcast has been seen yet this cycle, or the watchdog assumed comms
+// failure and gave up.
+inline constexpr bool ttc_is_ready(TtcState state)
+{
+    return state == TtcState::ENABLED_READY;
+}
+
+// True when counting down
 inline constexpr bool ttc_is_counting(TtcState state)
 {
-    return state == TtcState::COUNTING || state == TtcState::COUNTING_FINISHED;
+    return state == TtcState::ENABLED_COUNTING;
+}
+
+// True when the door is holding open (and the countdown can be restarted).
+inline constexpr bool ttc_is_holding(TtcState state)
+{
+    return state == TtcState::ENABLED_HOLDING;
+}
+
+// True when TTC is in one of the ENABLED_* states (ready, counting, or
+// holding) - i.e. the GDO has confirmed a real, actionable state.
+inline constexpr bool ttc_is_enabled(TtcState state)
+{
+    return ttc_is_ready(state) || ttc_is_counting(state) || ttc_is_holding(state);
+}
+
+// True when the GDO hasn't confirmed a real TTC state yet - a fault/pending
+// signal (see INITIALIZING_ENABLED/INITIALIZING_DISABLED in secplus2.h), not a state to act
+// on. TTC_ACTION commands sent while in this state are silently dropped by
+// the GDO, so nothing here should attempt to change TTC state - only ever
+// reflect/reject.
+inline constexpr bool ttc_is_initializing(TtcState state)
+{
+    return state == TtcState::INITIALIZING_ENABLED || state == TtcState::INITIALIZING_DISABLED;
 }
 
 } // namespace esphome::ratgdo

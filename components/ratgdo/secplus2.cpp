@@ -493,6 +493,8 @@ namespace secplus2 {
             this->ratgdo_->received(TtcAction { cmd.byte1 });
         } else if (cmd.type == CommandType::TTC_COUNTDOWN) {
             this->ratgdo_->received(TtcCountdown { static_cast<uint16_t>((cmd.byte1 << 8) | cmd.byte2) });
+        } else if (cmd.type == CommandType::TTC_STATE) {
+            this->ratgdo_->received(TtcStateMsg { cmd.byte1 });
         } else if (cmd.type == CommandType::PAIRED_DEVICES) {
             PairedDeviceCount pdc;
             pdc.kind = to_PairedDevice(cmd.nibble, PairedDevice::UNKNOWN);
