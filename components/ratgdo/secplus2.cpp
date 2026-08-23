@@ -266,6 +266,7 @@ namespace secplus2 {
 
     // seconds == 0 disables TTC entirely (TTC_SET_LIMIT{0} has never been
     // observed on the wire - TTC_ACTION(DISABLE) is the confirmed mechanism).
+    // nibble=1: matches every observed TTC_SET_LIMIT sender.
     void Secplus2::set_ttc_limit(uint16_t seconds)
     {
         if (seconds == 0) {
@@ -489,6 +490,8 @@ namespace secplus2 {
             this->ratgdo_->received(TtcAction { cmd.byte1 });
         } else if (cmd.type == CommandType::TTC_COUNTDOWN) {
             this->ratgdo_->received(TtcCountdown { static_cast<uint16_t>((cmd.byte1 << 8) | cmd.byte2) });
+        } else if (cmd.type == CommandType::TTC_STATE) {
+            this->ratgdo_->received(TtcStateMsg { cmd.byte1 });
         } else if (cmd.type == CommandType::PAIRED_DEVICES) {
             PairedDeviceCount pdc;
             pdc.kind = to_PairedDevice(cmd.nibble, PairedDevice::UNKNOWN);

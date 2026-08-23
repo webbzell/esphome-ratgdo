@@ -62,6 +62,7 @@ namespace secplus2 {
         (TTC_ACTION, 0x408), // byte1 = TtcActionCode (TOGGLE or DISABLE)
         (TTC_GET_COUNTDOWN, 0x409), // query current countdown; response is a normal TTC_COUNTDOWN broadcast - confirmed via live test
         (TTC_COUNTDOWN, 0x40a), // Periodic countdown broadcast message (sent every 60 seconds) while TTC counting down
+
         (GET_OPENINGS, 0x48b),
         (OPENINGS, 0x48c), // openings = (byte1<<8)+byte2
     )
@@ -77,6 +78,21 @@ namespace secplus2 {
 
     inline bool operator==(const uint8_t val, const TtcActionCode& code) { return val == static_cast<uint8_t>(code); }
     inline bool operator==(const TtcActionCode& code, const uint8_t val) { return val == static_cast<uint8_t>(code); }
+
+    // Named values for TTC_STATE message's byte1. (All are sent by GDO, except for 1.)
+    ENUM_SPARSE(TtcStateCode, uint8_t,
+        (UNKNOWN, 0),
+        (WALLPANEL_ACK, 0x01), // SENT BY WALL PANEL: ack that it observed a TTC_ACTION message
+        (ENABLED_COUNTING, 0x02), // TTC is configured and counting down
+        (DISABLED, 0x09), // TTC is disabled (limit is set to 0)
+        (ENABLED_HOLDING, 0x0a), // TTC is configured, but on hold
+        (CLOSING_ALERT, 0x0b), // Countdown ended, light-flash/beeper warning pre-close period
+        (ENABLED_READY, 0x0c), // TTC is configured, but not running
+        (INITIALIZING_ENABLED, 0x0d), // TTC starting up, will end up enabled. Transitions to ENABLED_* later.
+        (INITIALIZING_DISABLED, 0x0e)) // Same as INITIALIZING_ENABLED, but transitions to DISABLED later.
+
+    inline bool operator==(const uint8_t val, const TtcStateCode& code) { return val == static_cast<uint8_t>(code); }
+    inline bool operator==(const TtcStateCode& code, const uint8_t val) { return val == static_cast<uint8_t>(code); }
 
     enum class IncrementRollingCode {
         NO,

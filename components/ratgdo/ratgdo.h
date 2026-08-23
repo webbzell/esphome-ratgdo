@@ -172,7 +172,7 @@ public:
     single_observable<MotionState> motion_state { MotionState::UNKNOWN };
     single_observable<LearnState> learn_state { LearnState::UNKNOWN };
 
-    single_observable<TtcState> ttc_state { TtcState::UNKNOWN };
+    observable<TtcState, RATGDO_MAX_TTC_STATE_SUBSCRIBERS> ttc_state { TtcState::UNKNOWN };
     single_observable<uint16_t> ttc_countdown { TTC_COUNTDOWN_UNKNOWN };
     single_observable<uint16_t> ttc_limit { TTC_LIMIT_UNKNOWN };
 
@@ -232,6 +232,7 @@ public:
     void received(const TtcLimit limit);
     void received(const TtcCountdown countdown);
     void received(const TtcAction action);
+    void received(const TtcStateMsg msg);
     void received(const PairedDeviceCount pdc);
     void received(const BatteryState pdc);
 
@@ -482,6 +483,7 @@ protected:
     // Subscriber counters for defer name allocation
     uint8_t door_state_sub_num_ { 0 };
     uint8_t door_action_delayed_sub_num_ { 0 };
+    uint8_t ttc_state_sub_num_ { 0 };
 #ifdef RATGDO_USE_ENCODER
     uint8_t manually_operated_sub_num_ { 0 };
 #endif
@@ -525,12 +527,15 @@ namespace scheduler_ids {
     inline constexpr uint32_t DEFER_DOOR_ACTION_DELAYED_COUNT = RATGDO_MAX_DOOR_ACTION_DELAYED_SUBSCRIBERS;
     inline constexpr uint32_t DEFER_DOOR_ACTION_DELAYED_BASE = DEFER_DOOR_STATE_BASE + DEFER_DOOR_STATE_COUNT;
 
+    inline constexpr uint32_t DEFER_TTC_STATE_COUNT = RATGDO_MAX_TTC_STATE_SUBSCRIBERS;
+    inline constexpr uint32_t DEFER_TTC_STATE_BASE = DEFER_DOOR_ACTION_DELAYED_BASE + DEFER_DOOR_ACTION_DELAYED_COUNT;
+
 #ifdef RATGDO_USE_DISTANCE_SENSOR
     inline constexpr uint32_t DEFER_DISTANCE_COUNT = RATGDO_MAX_DISTANCE_SUBSCRIBERS;
-    inline constexpr uint32_t DEFER_DISTANCE_BASE = DEFER_DOOR_ACTION_DELAYED_BASE + DEFER_DOOR_ACTION_DELAYED_COUNT;
+    inline constexpr uint32_t DEFER_DISTANCE_BASE = DEFER_TTC_STATE_BASE + DEFER_TTC_STATE_COUNT;
     inline constexpr uint32_t DEFER_DISTANCE_END = DEFER_DISTANCE_BASE + DEFER_DISTANCE_COUNT;
 #else
-    inline constexpr uint32_t DEFER_DISTANCE_END = DEFER_DOOR_ACTION_DELAYED_BASE + DEFER_DOOR_ACTION_DELAYED_COUNT;
+    inline constexpr uint32_t DEFER_DISTANCE_END = DEFER_TTC_STATE_BASE + DEFER_TTC_STATE_COUNT;
 #endif
 
 #ifdef RATGDO_USE_VEHICLE_SENSORS
@@ -570,7 +575,6 @@ namespace scheduler_ids {
         DEFER_BUTTON_STATE,
         DEFER_MOTION_STATE,
         DEFER_LEARN_STATE,
-        DEFER_TTC_STATE,
         DEFER_TTC_COUNTDOWN,
         DEFER_TTC_LIMIT,
 
@@ -776,8 +780,10 @@ void RATGDOComponent::subscribe_learn_state(F&& f)
 template <typename F>
 void RATGDOComponent::subscribe_ttc_state(F&& f)
 {
-    this->ttc_state.subscribe([this, f](TtcState state) {
-        defer(scheduler_ids::DEFER_TTC_STATE, [f, state] { f(state); });
+    uint32_t id = get_scheduler_id(scheduler_ids::DEFER_TTC_STATE_BASE, scheduler_ids::DEFER_TTC_STATE_COUNT,
+        this->ttc_state_sub_num_, LOG_STR("ttc_state"));
+    this->ttc_state.subscribe([this, f, id](TtcState state) {
+        defer(id, [f, state] { f(state); });
     });
 }
 
