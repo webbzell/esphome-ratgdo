@@ -1,5 +1,6 @@
 #include "ratgdo_sensor.h"
 #include "../ratgdo_state.h"
+#include "esphome/core/controller_registry.h"
 #include "esphome/core/log.h"
 
 namespace esphome::ratgdo {
@@ -46,7 +47,11 @@ void RATGDOSensor::setup()
         break;
     case RATGDOSensorType::RATGDO_TTC_COUNTDOWN:
         this->parent_->subscribe_ttc_countdown([this](uint16_t seconds) {
-            this->publish_state(seconds);
+            if (ttc_is_counting(*this->parent_->ttc_state) && seconds != TTC_COUNTDOWN_UNKNOWN) {
+                this->publish_state(seconds);
+            } else {
+                this->publish_unavailable();
+            }
         });
         break;
     case RATGDOSensorType::RATGDO_TTC_LIMIT:
@@ -93,6 +98,23 @@ void RATGDOSensor::dump_config()
     default:
         break;
     }
+}
+
+// Special method to mark this sensor "unavailable" so that it displays as
+// - "NA" in the ESPHome Web UI
+// - "Unknown" in Home Assistant
+//
+// publish_state() can't be used for this because internally it calls
+// set_has_state(true).
+//
+// Mimics internal_send_state_to_frontend(), but sets has_state false first.
+// Order matters here because notify_sensor_update() needs that set first.
+void RATGDOSensor::publish_unavailable()
+{
+    this->state = NAN;
+    this->set_has_state(false);
+    this->callback_.call(NAN);
+    ControllerRegistry::notify_sensor_update(this);
 }
 
 } // namespace esphome::ratgdo
