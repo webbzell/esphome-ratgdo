@@ -179,6 +179,12 @@ public:
     static constexpr uint16_t TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL = 5;
     static constexpr uint16_t TTC_COUNTDOWN_WATCHDOG_TIMEOUT = 90; // for explanation, see restart_ttc_watchdog()
 
+    // Bounds/pacing for learning decrement_period_ms_ - see run_ttc_decrement_period_estimator()
+    static constexpr uint16_t TTC_DECREMENT_PERIOD_NOMINAL_MS = TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL * 1000;
+    static constexpr uint16_t TTC_DECREMENT_PERIOD_MIN_MS = TTC_DECREMENT_PERIOD_NOMINAL_MS * 90 / 100; // -10%
+    static constexpr uint16_t TTC_DECREMENT_PERIOD_MAX_MS = TTC_DECREMENT_PERIOD_NOMINAL_MS * 110 / 100; // +10%
+    static constexpr uint32_t TTC_DECREMENT_PERIOD_MIN_SAMPLE_INTERVAL = 50; // rate-limit: at most one update per 50s
+
 #ifdef RATGDO_USE_VEHICLE_SENSORS
     observable<VehicleDetectedState, RATGDO_MAX_VEHICLE_DETECTED_SUBSCRIBERS> vehicle_detected_state { VehicleDetectedState::NO };
     observable<VehicleArrivingState, RATGDO_MAX_VEHICLE_ARRIVING_SUBSCRIBERS> vehicle_arriving_state { VehicleArrivingState::NO };
@@ -280,6 +286,8 @@ public:
     void start_ttc_decrementer();
     void stop_ttc_watchdog_and_decrementer();
     void set_ttc_state_and_countdown(TtcState state, uint16_t countdown);
+    void init_ttc_decrement_period_estimator(uint16_t countdown_seconds, uint32_t now);
+    void run_ttc_decrement_period_estimator(uint16_t countdown_seconds, uint32_t now_ms);
 
     // Learn & Paired
     void activate_learn();
@@ -486,6 +494,21 @@ protected:
     InternalGPIOPin* enc_pin_b_ { nullptr };
 #endif
 
+    // Countdown value/time at the start of the current counting session's
+    // clock-skew measurement window. Reset to TTC_COUNTDOWN_UNKNOWN by
+    // stop_ttc_watchdog_and_decrementer() whenever counting stops, then
+    // actually (re)established by run_ttc_decrement_period_estimator() from
+    // the first real TTC_COUNTDOWN broadcast of the next session - not from
+    // the TTC_STATE transition that confirms counting has (re)started,
+    // since that broadcast's own arrival can itself be delayed (see
+    // ttc_toggle_hold()) or can even follow the first TTC_COUNTDOWN
+    // broadcast rather than precede it. The fixed origin received(TtcCountdown)
+    // measures the GDO's clock rate against, so the measurement window (and
+    // precision) grows for as long as the session continues.
+    uint16_t ttc_countdown_starting_value_ { TTC_COUNTDOWN_UNKNOWN };
+    uint32_t ttc_countdown_start_time_ms_ { 0 };
+    uint32_t ttc_decrement_last_update_time_ms_ { 0 }; // millis() of the last decrement_period_ms_ update; rate-limits sampling to >=50s apart
+    uint16_t decrement_period_ms_ { TTC_DECREMENT_PERIOD_NOMINAL_MS }; // real ms per decrementer tick, learned from the GDO's own clock - see run_ttc_decrement_period_estimator()
     // Subscriber counters for defer name allocation
     uint8_t door_state_sub_num_ { 0 };
     uint8_t door_action_delayed_sub_num_ { 0 };
