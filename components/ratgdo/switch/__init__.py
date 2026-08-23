@@ -8,6 +8,7 @@ from .. import (
     RATGDO_CLIENT_SCHMEA,
     ratgdo_ns,
     register_ratgdo_child,
+    subscribe_ttc_state,
     subscribe_vehicle_arriving,
 )
 
@@ -51,3 +52,5 @@ async def to_code(config):
     # are enabled, and the codegen emits the define to size the observable accordingly.
     if config[CONF_TYPE] == "led":
         subscribe_vehicle_arriving()
+    if config[CONF_TYPE] == "auto_close":
+        subscribe_ttc_state()
