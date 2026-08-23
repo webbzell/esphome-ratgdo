@@ -235,11 +235,14 @@ void RATGDOComponent::restart_ttc_watchdog()
     });
 }
 
-// Starts the ttc decrementer.
+// Starts the ttc decrementer. The nominal period is 5000ms, but because
+// the GDO clock may be faster or slower than RATGDO, we adjust the period
+// based on TTC_COUNTDOWN messages broadcast by the GDO
 void RATGDOComponent::start_ttc_decrementer()
 {
+    ESP_LOGD(TAG, "Starting TTC decrementer, period=%dms", this->decrement_period_ms_);
     this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
-    this->set_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT, TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL * 1000, [this]() {
+    this->set_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT, this->decrement_period_ms_, [this]() {
         uint16_t current = *this->ttc_countdown;
         if (current == TTC_COUNTDOWN_UNKNOWN) { // nothing to decrement, NO-OP
             return;
@@ -256,11 +259,15 @@ void RATGDOComponent::start_ttc_decrementer()
     });
 }
 
-// Stops the local TTC watchdog and decrementer interval
+// Stops the local TTC watchdog and decrementer interval, and forgets the
+// current decrement-period-estimator baseline, so whichever TTC_COUNTDOWN
+// broadcast starts the next counting session establishes a fresh one -
+// see run_ttc_decrement_period_estimator().
 void RATGDOComponent::stop_ttc_watchdog_and_decrementer()
 {
     this->cancel_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG);
     this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
+    this->ttc_countdown_starting_value_ = TTC_COUNTDOWN_UNKNOWN;
 }
 
 void RATGDOComponent::received(const DoorState door_state)
@@ -573,6 +580,75 @@ void RATGDOComponent::received(const TtcLimit limit)
     this->ttc_limit = limit.seconds;
 }
 
+// Remember the starting countdown value and local time in ms when received.
+void RATGDOComponent::init_ttc_decrement_period_estimator(uint16_t countdown_seconds, uint32_t now)
+{
+    this->ttc_countdown_starting_value_ = countdown_seconds;
+    this->ttc_countdown_start_time_ms_ = now;
+    this->ttc_decrement_last_update_time_ms_ = now;
+}
+
+// Adjusts decrement_period_ms_ based on countdown broadcasts from GDO.
+// Computes the ratio of RATGDO's idea of elapsed time and the
+// GDO's idea of elapsed time. This ratio is multiplied by the
+// desired decrement period in ms. For safety, the range of period
+// values is clamped to within +/-10% of nominal.
+//
+// This only updates decrement_period_ms_ - it doesn't stop and restart
+// the already-running decrementer interval, which continues as-is until
+// it's stopped. The new estimate takes effect the next time the
+// decrementer is started, via start_ttc_decrementer().
+void RATGDOComponent::run_ttc_decrement_period_estimator(uint16_t countdown_seconds, uint32_t now_ms)
+{
+    if (this->ttc_countdown_starting_value_ == TTC_COUNTDOWN_UNKNOWN) {
+        // First TTC_COUNTDOWN broadcast since counting (re)started. Establish
+        // the baseline this session's ratio will be measured against using
+        // this broadcast's own value/timestamp - not the TTC_STATE
+        // transition's, which can itself arrive up to 25s late (see
+        // ttc_toggle_hold()).
+        this->init_ttc_decrement_period_estimator(countdown_seconds, now_ms);
+        return;
+    }
+
+    if (countdown_seconds >= this->ttc_countdown_starting_value_) {
+        return;
+    }
+
+    // calculate differences and time error
+    uint32_t elapsed_ratgdo_ms = now_ms - this->ttc_countdown_start_time_ms_;
+    uint32_t elapsed_gdo_s = this->ttc_countdown_starting_value_ - countdown_seconds;
+    int32_t error_ms = elapsed_ratgdo_ms - elapsed_gdo_s * 1000;
+
+    if (elapsed_gdo_s < TTC_DECREMENT_PERIOD_MIN_SAMPLE_INTERVAL) {
+        return;
+    }
+
+    uint32_t time_since_last_update_ms = now_ms - this->ttc_decrement_last_update_time_ms_;
+    if (time_since_last_update_ms < TTC_DECREMENT_PERIOD_MIN_SAMPLE_INTERVAL * 1000) {
+        return;
+    }
+    this->ttc_decrement_last_update_time_ms_ = now_ms;
+
+    // calculate a new estimate of the decrementer period
+    uint32_t new_decrement_period_estimate_ms = (TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL * elapsed_ratgdo_ms) / elapsed_gdo_s;
+
+    // Real oscillator drift is well under 10%, so a raw sample outside this
+    // already-generous window is more likely a bad sample (e.g. a delayed
+    // processing tick skewing now_ms) than genuine new information about the
+    // GDO's clock - reject it outright rather than let it drag
+    // decrement_period_ms_ toward it.
+    if (new_decrement_period_estimate_ms < TTC_DECREMENT_PERIOD_MIN_MS || new_decrement_period_estimate_ms > TTC_DECREMENT_PERIOD_MAX_MS) {
+        ESP_LOGW(TAG, "Rejecting outlier decrementer period estimate: %ums is outside the allowed %u-%ums range - keeping %ums",
+            new_decrement_period_estimate_ms, TTC_DECREMENT_PERIOD_MIN_MS, TTC_DECREMENT_PERIOD_MAX_MS, this->decrement_period_ms_);
+        return;
+    }
+
+    // average with current value to filter out noise
+    this->decrement_period_ms_ = (this->decrement_period_ms_ + new_decrement_period_estimate_ms) / 2; // smoothing filter
+
+    ESP_LOGD(TAG, "RATGDO-GDO time diff=%dms over %us: new decrementer period estimate is %ums", error_ms, elapsed_gdo_s, this->decrement_period_ms_);
+}
+
 void RATGDOComponent::received(const TtcCountdown countdown)
 {
     ESP_LOGD(TAG, "TTC countdown broadcast: %ds remaining", countdown.seconds);
@@ -587,6 +663,12 @@ void RATGDOComponent::received(const TtcCountdown countdown)
         ESP_LOGW(TAG, "Unexpected TTC countdown broadcast (%ds) received while door is %s", countdown.seconds, LOG_STR_ARG(DoorState_to_string(ds)));
     }
     this->set_ttc_state_and_countdown(*this->ttc_state, countdown.seconds);
+
+    // TTC_COUNTDOWN is only transmitted when the GDO is starting,
+    // continuing, or ending a countdown, so use it to estimate the GDO
+    // clock speed.
+    this->run_ttc_decrement_period_estimator(countdown.seconds, millis());
+
     if (ttc_is_counting(*this->ttc_state)) {
         this->restart_ttc_watchdog();
     }
@@ -679,6 +761,13 @@ void RATGDOComponent::received(const TtcStateMsg msg)
             // random 0-2.5s offset (half of our 5s period), so restarting
             // it on every TTC_COUNTDOWN broadcast would add up to 2.5s of
             // jitter to when the local countdown actually decrements.
+            //
+            // No need to touch the decrement-period-estimator baseline here:
+            // stop_ttc_watchdog_and_decrementer() already reset it to
+            // TTC_COUNTDOWN_UNKNOWN when this session's counting last
+            // stopped (or it's still at its power-on default). Whichever
+            // TTC_COUNTDOWN broadcast establishes it next may arrive before
+            // or after this TTC_STATE transition - see received(TtcCountdown).
             this->start_ttc_decrementer();
         }
         this->restart_ttc_watchdog();
