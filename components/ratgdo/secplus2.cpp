@@ -365,6 +365,14 @@ namespace secplus2 {
         ESP_LOGD(TAG, "%s: [%s]", LOG_STR_ARG(prefix), format_hex_pretty_to(hex_buf, packet, PACKET_LENGTH));
     }
 
+    // fixed's low 32 bits are the sender's client_id. It is helpful to know
+    // what sender transmitted a packet because it helps understand what's
+    // going on on the wire - for TTC-related commands in particular,
+    // knowing whether a broadcast came from the GDO itself or from a
+    // wall control is useful context. It would also matter for firmware
+    // version number, but that isn't part of this feature.
+    static inline uint32_t sender_from_fixed(uint64_t fixed) { return fixed & 0xFFFFFFFF; }
+
     optional<Command> Secplus2::decode_packet(const WirePacket& packet) const
     {
         uint32_t rolling = 0;
@@ -392,7 +400,7 @@ namespace secplus2 {
         uint8_t byte1 = (data >> 16) & 0xff;
         uint8_t byte2 = (data >> 24) & 0xff;
 
-        ESP_LOG1(TAG, "cmd=%03x (%s) byte2=%02x byte1=%02x nibble=%01x", cmd, LOG_STR_ARG(CommandType_to_string(cmd_type)), byte2, byte1, nibble);
+        ESP_LOG1(TAG, "cmd=%03x (%s) byte2=%02x byte1=%02x nibble=%01x sender=%08" PRIx32, cmd, LOG_STR_ARG(CommandType_to_string(cmd_type)), byte2, byte1, nibble, sender_from_fixed(fixed));
 
         return Command { cmd_type, nibble, byte1, byte2 };
     }
