@@ -365,6 +365,14 @@ namespace secplus2 {
         ESP_LOGD(TAG, "%s: [%s]", LOG_STR_ARG(prefix), format_hex_pretty_to(hex_buf, packet, PACKET_LENGTH));
     }
 
+    // fixed's low 32 bits are the sender's client_id. Knowing the sender
+    // matters whenever a message could plausibly come from more than one
+    // device: a TTC_STATE ack can come from a wall panel instead of the GDO,
+    // a version query/response can be answered by either a wall panel or
+    // the GDO, and some queries that are normally wall-panel-initiated are
+    // occasionally seen coming from the GDO itself.
+    static inline uint32_t sender_from_fixed(uint64_t fixed) { return fixed & 0xFFFFFFFF; }
+
     optional<Command> Secplus2::decode_packet(const WirePacket& packet) const
     {
         uint32_t rolling = 0;
@@ -392,7 +400,7 @@ namespace secplus2 {
         uint8_t byte1 = (data >> 16) & 0xff;
         uint8_t byte2 = (data >> 24) & 0xff;
 
-        ESP_LOG1(TAG, "cmd=%03x (%s) byte2=%02x byte1=%02x nibble=%01x", cmd, LOG_STR_ARG(CommandType_to_string(cmd_type)), byte2, byte1, nibble);
+        ESP_LOG1(TAG, "cmd=%03x (%s) byte2=%02x byte1=%02x nibble=%01x sender=%08" PRIx32, cmd, LOG_STR_ARG(CommandType_to_string(cmd_type)), byte2, byte1, nibble, sender_from_fixed(fixed));
 
         return Command { cmd_type, nibble, byte1, byte2 };
     }
