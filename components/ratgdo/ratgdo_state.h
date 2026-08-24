@@ -164,12 +164,6 @@ ENUM(TtcState, uint8_t,
     (INITIALIZING_DISABLED, 6),
     (CLOSING_ALERT, 7)) // countdown ended; light-flash/beeper warning before the door actually closes
 
-// True when TTC's state hasn't been learned yet this power cycle.
-inline constexpr bool ttc_is_unknown(TtcState state)
-{
-    return state == TtcState::UNKNOWN;
-}
-
 // True when TTC is enabled but not currently active: the door isn't open,
 // no broadcast has been seen yet this cycle, or the watchdog assumed comms
 // failure and gave up.
