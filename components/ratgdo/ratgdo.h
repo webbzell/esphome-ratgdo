@@ -286,7 +286,6 @@ public:
     void start_ttc_decrementer();
     void stop_ttc_watchdog_and_decrementer();
     void set_ttc_state_and_countdown(TtcState state, uint16_t countdown);
-    void apply_ttc_toggle();
     void init_ttc_decrement_period_estimator(uint16_t countdown_seconds, uint32_t now);
     void run_ttc_decrement_period_estimator(uint16_t countdown_seconds, uint32_t now_ms);
 
