@@ -371,8 +371,6 @@ void RATGDOComponent::set_resolved_door_state(const DoorState door_state)
 
     if (door_state == DoorState::OPENING) {
         // door started opening
-        this->flags_.ttc_limit_learned = false; // force relearn ttc_limit from this cycle's broadcasts
-                                                // These can start before OPEN is reached
         this->reset_ttc_state();
         if (prev_door_state == DoorState::CLOSING) {
             this->door_position_update();
@@ -562,43 +560,24 @@ void RATGDOComponent::received(const PairedDeviceCount pdc)
     }
 }
 
-// The TTC_SET_LIMIT message is only transmitted by the wall control
-// when the user is changing the limit. So it might only ever be
-// transmitted one time when the GDO is installed. Therefore it might
-// seem hard to determine the ttc_limit. However, the ttc limit can
-// be inferred from the TTC_COUNTDOWN messages, because the first
-// TTC_COUNTDOWN broadcast of a cycle is equal to the configured
-// ttc_limit.
-//
-// So RATGDO captures and remembers the first TTC_COUNTDOWN value
-// after a door open (or release) as the ttc_limit value.
-// Alternatively, if a TTC_COUNTDOWN message contains a value larger
-// than the currently saved ttc_limit, then the saved ttc_limit must
-// be out of date, and it is updated accordingly.
-//
-// NOTE: The value of ttc_limit is only stored in RAM, so it is lost
-// during a reboot. If a reboot happens in the middle of a ttc
-// countdown, there's no way to know the true limit value (the limit
-// may have changed while ratgdo was offline). The logic described
-// above will incorrectly capture a too-small limit for this
-// cycle. This is acceptable because it self-corrects on the very next
-// release or door-open cycle, both of which set ttc_limit_learned=false
-// and let a fresh broadcast capture the real value.
 void RATGDOComponent::received(const TtcLimit limit)
 {
     ESP_LOGD(TAG, "Time to close (TTC) limit: %ds", limit.seconds);
     this->ttc_limit = limit.seconds;
-    this->flags_.ttc_limit_learned = true;
 }
 
 void RATGDOComponent::received(const TtcCountdown countdown)
 {
     ESP_LOGD(TAG, "TTC countdown broadcast: %ds remaining", countdown.seconds);
-    auto ds = *this->door_state;
-    if ((!this->flags_.ttc_limit_learned && (ds == DoorState::OPENING || ds == DoorState::OPEN))
-        || countdown.seconds > *this->ttc_limit) {
+    if (countdown.seconds > *this->ttc_limit) {
+        // Shouldn't happen if ttc_limit is being learned correctly
+        ESP_LOGW(TAG, "TTC countdown (%ds) exceeds known ttc_limit (%ds)", countdown.seconds, *this->ttc_limit);
         this->ttc_limit = countdown.seconds;
-        this->flags_.ttc_limit_learned = true;
+    }
+    auto ds = *this->door_state;
+    if (countdown.seconds > 0 && (ds == DoorState::CLOSED || ds == DoorState::CLOSING)) {
+        // Shouldn't happen - TTC only runs while the door is open. Flag just in case.
+        ESP_LOGW(TAG, "Unexpected TTC countdown broadcast (%ds) received while door is %s", countdown.seconds, LOG_STR_ARG(DoorState_to_string(ds)));
     }
     this->start_or_sync_ttc_countdown(countdown.seconds);
 }
@@ -814,6 +793,11 @@ void RATGDOComponent::set_ttc_limit(uint16_t seconds)
 {
     ESP_LOGD(TAG, "Set TTC limit: %ds", seconds);
     this->protocol_->call(SetTtcLimit { seconds });
+}
+
+void RATGDOComponent::query_ttc_countdown()
+{
+    this->protocol_->call(QueryTtcCountdown { });
 }
 
 void RATGDOComponent::query_paired_devices()
@@ -1168,9 +1152,7 @@ void RATGDOComponent::apply_ttc_toggle()
         this->ttc_countdown = 0;
         this->ttc_state = TtcState::HOLDING;
     } else if (*this->ttc_state == TtcState::HOLDING) {
-        // Release hold. Restart the local countdown and refresh the TTC
-        // limit from the next countdown broadcast.
-        this->flags_.ttc_limit_learned = false;
+        // Release hold. Restart the local countdown.
         this->start_or_sync_ttc_countdown(*this->ttc_limit);
     }
 }

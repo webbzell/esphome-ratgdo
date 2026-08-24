@@ -59,6 +59,7 @@ namespace secplus2 {
         (TTC_LIMIT, 0x401), // current TTC limit in seconds => (byte1<<8)+byte2; same as TTC_SET_LIMIT
         (TTC_SET_LIMIT, 0x402), // command to set TTC in seconds => (byte1<<8)+byte2
         (TTC_ACTION, 0x408), // byte1 = TtcActionCode (TOGGLE or DISABLE)
+        (TTC_GET_COUNTDOWN, 0x409), // query current countdown; response is a normal TTC_COUNTDOWN broadcast - confirmed via live test
         (TTC_COUNTDOWN, 0x40a), // Periodic countdown broadcast message (sent every 60 seconds) while TTC counting down
         (GET_OPENINGS, 0x48b),
         (OPENINGS, 0x48c), // openings = (byte1<<8)+byte2
@@ -159,6 +160,7 @@ namespace secplus2 {
         void send_ttc_action(TtcActionCode action);
         void query_ttc_limit();
         void set_ttc_limit(uint16_t seconds);
+        void query_ttc_countdown();
         void query_paired_devices();
         void query_paired_devices(PairedDevice kind);
         void clear_paired_devices(PairedDevice kind);
