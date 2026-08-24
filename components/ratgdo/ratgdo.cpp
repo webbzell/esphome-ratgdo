@@ -1235,31 +1235,23 @@ void RATGDOComponent::lock_toggle()
 
 void RATGDOComponent::ttc_toggle_hold()
 {
-    if (ttc_is_unknown(*this->ttc_state)) {
-        // Don't transmit while we haven't observed any TTC activity on the
-        // wire this cycle: we can't meaningfully pause or resume something
-        // we have no confirmed state for.
+    if (!ttc_is_enabled(*this->ttc_state)) {
         return;
     }
+
     ESP_LOGD(TAG, "Toggle TTC");
     this->protocol_->call(TtcActionTx { });
-    this->apply_ttc_toggle();
-}
 
-// Shared pause/release state-machine transition for TTC hold, applied
-// whether the toggle was observed on the wire (from the wall panel) or
-// initiated by RATGDO.
-void RATGDOComponent::apply_ttc_toggle()
-{
-    if (ttc_is_counting(*this->ttc_state)) {
-        // Pause the countdown: stop decrementing locally, cancel the
-        // countdown watchdog, and go to HOLDING state.
+    // Fix: in a small fraction of observed cases, the GDO takes as long as
+    // 25 seconds to transmit the updated TTC_STATE after going into hold,
+    // leaving the UI stale. Apply the toggle locally rather than waiting for
+    // the GDO's broadcast, for a snappier UX.
+    //
+    // For releasing, we have to wait for the GDO to tell us what
+    // the next state is (COUNTING or READY) and when to start counting.
+    if (!ttc_is_holding(*this->ttc_state)) {
         this->stop_ttc_watchdog_and_decrementer();
-        this->ttc_countdown = 0;
-        this->ttc_state = TtcState::ENABLED_HOLDING;
-    } else if (*this->ttc_state == TtcState::ENABLED_HOLDING) {
-        // Release hold. Wait for the GDO's TTC_STATE broadcast to tell us
-        // what's next (COUNTING or READY).
+        this->set_ttc_state_and_countdown(TtcState::ENABLED_HOLDING, 0);
     }
 }
 

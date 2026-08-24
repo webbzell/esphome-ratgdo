@@ -280,7 +280,6 @@ public:
     void start_ttc_decrementer();
     void stop_ttc_watchdog_and_decrementer();
     void set_ttc_state_and_countdown(TtcState state, uint16_t countdown);
-    void apply_ttc_toggle();
 
     // Learn & Paired
     void activate_learn();
