@@ -90,6 +90,10 @@ namespace secplus2 {
             this->query_ttc_limit();
             synced = false;
         }
+        if (*this->ratgdo_->ttc_countdown == TTC_COUNTDOWN_UNKNOWN) {
+            this->query_ttc_countdown();
+            synced = false;
+        }
         if (*this->ratgdo_->paired_total == PAIRED_DEVICES_UNKNOWN) {
             this->query_paired_devices(PairedDevice::ALL);
             synced = false;
@@ -206,6 +210,8 @@ namespace secplus2 {
             this->query_ttc_limit();
         } else if (args.tag == Tag::set_ttc_limit) {
             this->set_ttc_limit(args.value.set_ttc_limit.seconds);
+        } else if (args.tag == Tag::query_ttc_countdown) {
+            this->query_ttc_countdown();
         }
         return { };
     }
@@ -260,6 +266,11 @@ namespace secplus2 {
             this->send_command(Command { CommandType::TTC_SET_LIMIT, 1,
                 static_cast<uint8_t>(seconds >> 8), static_cast<uint8_t>(seconds & 0xff) });
         }
+    }
+
+    void Secplus2::query_ttc_countdown()
+    {
+        this->send_command(Command { CommandType::TTC_GET_COUNTDOWN, 1 });
     }
 
     void Secplus2::query_paired_devices()
