@@ -75,6 +75,7 @@ const float DOOR_POSITION_UNKNOWN = -1.0;
 const float DOOR_DELTA_UNKNOWN = -2.0;
 const uint8_t PAIRED_DEVICES_UNKNOWN = 0xFF;
 const uint16_t TTC_LIMIT_UNKNOWN = 0xFFFF; // 0 is a valid limit (TTC disabled), so use 0xFFFF instead
+const uint16_t TTC_COUNTDOWN_UNKNOWN = 0xFFFF; // 0 is a valid countdown (not counting), so use 0xFFFF instead
 
 struct RATGDOStore {
     volatile uint32_t obstruction_low_count = 0; // count obstruction low pulses
@@ -172,7 +173,7 @@ public:
     single_observable<LearnState> learn_state { LearnState::UNKNOWN };
 
     single_observable<TtcState> ttc_state { TtcState::UNKNOWN };
-    single_observable<uint16_t> ttc_countdown { 0 };
+    single_observable<uint16_t> ttc_countdown { TTC_COUNTDOWN_UNKNOWN };
     single_observable<uint16_t> ttc_limit { TTC_LIMIT_UNKNOWN };
 
     static constexpr uint16_t TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL = 5;
@@ -314,6 +315,7 @@ public:
     void query_openings();
     void query_ttc_limit();
     void set_ttc_limit(uint16_t seconds);
+    void query_ttc_countdown();
     void sync();
 
     using Component::cancel_interval;
@@ -444,7 +446,6 @@ protected:
     struct {
         uint8_t obstruction_sensor_detected : 1;
         uint8_t obst_sleep_low : 1;
-        uint8_t ttc_limit_learned : 1; // whether ttc_limit reflects the current open cycle
 #ifdef RATGDO_USE_VEHICLE_SENSORS
         uint8_t presence_detect_window_active : 1;
 #endif

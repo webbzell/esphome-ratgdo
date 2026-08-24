@@ -83,6 +83,8 @@ namespace protocol {
     struct SetTtcLimit {
         uint16_t seconds; // 0 disables TTC entirely
     };
+    struct QueryTtcCountdown {
+    };
 
     // a poor man's sum-type, because C++
     SUM_TYPE(Args,
@@ -98,7 +100,8 @@ namespace protocol {
         (ClearPairedDevices, clear_paired_devices),
         (TtcActionTx, ttc_action_tx),
         (QueryTtcLimit, query_ttc_limit),
-        (SetTtcLimit, set_ttc_limit), )
+        (SetTtcLimit, set_ttc_limit),
+        (QueryTtcCountdown, query_ttc_countdown), )
 
     struct RollingCodeCounter {
         single_observable<uint32_t>* value;
