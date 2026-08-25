@@ -192,6 +192,8 @@ namespace secplus2 {
             this->send_command(CommandType::GET_STATUS);
         } else if (args.tag == Tag::query_openings) {
             this->send_command(CommandType::GET_OPENINGS);
+        } else if (args.tag == Tag::query_battery_status) {
+            this->query_battery_status();
         } else if (args.tag == Tag::get_rolling_code_counter) {
             return Result(RollingCodeCounter { std::addressof(this->rolling_code_counter_) });
         } else if (args.tag == Tag::set_rolling_code_counter) {
@@ -239,6 +241,11 @@ namespace secplus2 {
     void Secplus2::query_openings()
     {
         this->send_command(CommandType::GET_OPENINGS);
+    }
+
+    void Secplus2::query_battery_status()
+    {
+        this->send_command(CommandType::GET_BATTERY_STATUS);
     }
 
     // Both byte1 values were determined empirically. The "HOLD" and "REL"

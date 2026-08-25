@@ -909,6 +909,11 @@ void RATGDOComponent::query_openings()
     this->protocol_->call(QueryOpenings { });
 }
 
+void RATGDOComponent::query_battery_status()
+{
+    this->protocol_->call(QueryBatteryStatus { });
+}
+
 void RATGDOComponent::query_ttc_state()
 {
     this->protocol_->call(QueryTtcState { });

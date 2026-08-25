@@ -36,6 +36,7 @@ namespace secplus2 {
         (STATUS, 0x081),
         (OBST_1, 0x084), // sent when an obstruction happens?
         (OBST_2, 0x085), // sent when an obstruction happens?
+        (GET_BATTERY_STATUS, 0x09c), // query battery status; response is a normal BATTERY_STATUS broadcast
         (BATTERY_STATUS, 0x09d),
 
         (TTC_GET_STATE, 0x0a0),
@@ -174,6 +175,7 @@ namespace secplus2 {
 
         void query_status();
         void query_openings();
+        void query_battery_status();
         void send_ttc_action(TtcActionCode action);
         void query_ttc_state();
         void query_ttc_limit();

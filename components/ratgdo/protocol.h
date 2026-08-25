@@ -64,6 +64,8 @@ namespace protocol {
     };
     struct QueryOpenings {
     };
+    struct QueryBatteryStatus {
+    };
     struct ActivateLearn {
     };
     struct InactivateLearn {
@@ -95,6 +97,7 @@ namespace protocol {
         (SetClientID, set_client_id),
         (QueryStatus, query_status),
         (QueryOpenings, query_openings),
+        (QueryBatteryStatus, query_battery_status),
         (ActivateLearn, activate_learn),
         (InactivateLearn, inactivate_learn),
         (QueryPairedDevices, query_paired_devices),
