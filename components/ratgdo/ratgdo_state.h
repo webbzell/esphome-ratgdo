@@ -144,7 +144,9 @@ struct TtcCountdown {
     uint16_t seconds;
 };
 
-struct TtcToggleHold {
+// Raw byte1 from a TTC_ACTION message, not yet mapped to a meaning.
+struct TtcAction {
+    uint8_t value;
 };
 
 ENUM(TtcState, uint8_t,

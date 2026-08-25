@@ -196,13 +196,8 @@ namespace secplus2 {
             this->activate_learn();
         } else if (args.tag == Tag::inactivate_learn) {
             this->inactivate_learn();
-        } else if (args.tag == Tag::ttc_toggle_hold_tx) {
-            // The "HOLD" and "REL" (release) buttons on an 880LM wall control were
-            // pressed repeatedly, and the resulting messages were captured from the wire
-            // as log messages in ratgdo's web console. The same message was observed
-            // for both the HOLD and REL-ease functions. Therefore it's a toggle function.
-            // nibble=1, byte1=4, byte2=0: These values were determined empirically.
-            this->send_command(Command { CommandType::TTC_TOGGLE_HOLD, 1, 4, 0 });
+        } else if (args.tag == Tag::ttc_action_tx) {
+            this->send_ttc_action(TtcActionCode::TOGGLE);
         }
         return { };
     }
@@ -224,6 +219,18 @@ namespace secplus2 {
     void Secplus2::query_openings()
     {
         this->send_command(CommandType::GET_OPENINGS);
+    }
+
+    // Both byte1 values were determined empirically. The "HOLD" and "REL"
+    // (release) buttons on an 880LM wall control were pressed repeatedly,
+    // and the resulting messages were captured as log messages in ratgdo's
+    // web console. The same message (byte1=4) was observed for both the HOLD
+    // and REL-ease functions, so it's a toggle. byte1=5 was found by probing
+    // other values and observing which one disabled TTC.
+    // nibble=1: matches every observed TTC_ACTION sender.
+    void Secplus2::send_ttc_action(TtcActionCode action)
+    {
+        this->send_command(Command { CommandType::TTC_ACTION, 1, static_cast<uint8_t>(action), 0 });
     }
 
     void Secplus2::query_paired_devices()
@@ -430,8 +437,8 @@ namespace secplus2 {
             this->ratgdo_->received(Openings { static_cast<uint16_t>((cmd.byte1 << 8) | cmd.byte2), cmd.nibble });
         } else if (cmd.type == CommandType::TTC_SET_LIMIT) {
             this->ratgdo_->received(TtcLimit { static_cast<uint16_t>((cmd.byte1 << 8) | cmd.byte2) });
-        } else if (cmd.type == CommandType::TTC_TOGGLE_HOLD) {
-            this->ratgdo_->received(TtcToggleHold { });
+        } else if (cmd.type == CommandType::TTC_ACTION) {
+            this->ratgdo_->received(TtcAction { cmd.byte1 });
         } else if (cmd.type == CommandType::TTC_COUNTDOWN) {
             this->ratgdo_->received(TtcCountdown { static_cast<uint16_t>((cmd.byte1 << 8) | cmd.byte2) });
         } else if (cmd.type == CommandType::PAIRED_DEVICES) {

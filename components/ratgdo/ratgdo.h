@@ -229,7 +229,7 @@ public:
     void received(const Openings openings);
     void received(const TtcLimit limit);
     void received(const TtcCountdown countdown);
-    void received(const TtcToggleHold toggle_hold);
+    void received(const TtcAction action);
     void received(const PairedDeviceCount pdc);
     void received(const BatteryState pdc);
 

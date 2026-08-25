@@ -76,7 +76,7 @@ namespace protocol {
     struct ClearPairedDevices {
         PairedDevice kind;
     };
-    struct TtcToggleHoldTx {
+    struct TtcActionTx {
     };
 
     // a poor man's sum-type, because C++
@@ -91,7 +91,7 @@ namespace protocol {
         (QueryPairedDevices, query_paired_devices),
         (QueryPairedDevicesAll, query_paired_devices_all),
         (ClearPairedDevices, clear_paired_devices),
-        (TtcToggleHoldTx, ttc_toggle_hold_tx), )
+        (TtcActionTx, ttc_action_tx), )
 
     struct RollingCodeCounter {
         single_observable<uint32_t>* value;
