@@ -103,6 +103,18 @@ void RATGDOSwitch::write_state(bool state)
             if (ttc_is_holding(*ts)) {
                 this->parent_->ttc_toggle_hold();
             }
+            if (!ttc_is_enabled(*ts)) {
+                // User's attempt to turn on TTC was blocked for some reason.
+                // But the UI (e.g. ESPHome web UI) has already optimistically
+                // shown the switch as "on," so we need to fix that.
+                // Just calling publish_state(false) here won't work
+                // because internally the switch is still "false" and
+                // the notification will be suppressed.
+                // So the solution is to double publish, first to true (on)
+                // to match the UI, then to false (off) to put it back.
+                this->publish_state(true);
+                this->publish_state(false);
+            }
         }
     } break;
     default:
