@@ -603,9 +603,9 @@ void RATGDOComponent::received(const TtcCountdown countdown)
     this->start_or_sync_ttc_countdown(countdown.seconds);
 }
 
-void RATGDOComponent::received(const TtcToggleHold)
+void RATGDOComponent::received(const TtcAction action)
 {
-    ESP_LOGD(TAG, "TTC_TOGGLE_HOLD observed");
+    ESP_LOGD(TAG, "TTC_ACTION observed: 0x%02x", action.value);
     this->apply_ttc_toggle();
 }
 
@@ -1140,7 +1140,7 @@ void RATGDOComponent::ttc_toggle_hold()
         return;
     }
     ESP_LOGD(TAG, "Toggle TTC");
-    this->protocol_->call(TtcToggleHoldTx { });
+    this->protocol_->call(TtcActionTx { });
     this->apply_ttc_toggle();
 }
 

@@ -58,7 +58,7 @@ namespace secplus2 {
         (PAIR_2, 0x400),
         (PAIR_2_RESP, 0x401),
         (TTC_SET_LIMIT, 0x402), // Command to set TTC in seconds => (byte1<<8)+byte2
-        (TTC_TOGGLE_HOLD, 0x408), // Toggles TTC countdown between *hold* & *release*
+        (TTC_ACTION, 0x408), // byte1 = TtcActionCode (TOGGLE or DISABLE)
         (TTC_COUNTDOWN, 0x40a), // Periodic countdown broadcast message (sent every 60 seconds) while TTC counting down
         (GET_OPENINGS, 0x48b),
         (OPENINGS, 0x48c), // openings = (byte1<<8)+byte2
@@ -66,6 +66,15 @@ namespace secplus2 {
 
     inline bool operator==(const uint16_t cmd_i, const CommandType& cmd_e) { return cmd_i == static_cast<uint16_t>(cmd_e); }
     inline bool operator==(const CommandType& cmd_e, const uint16_t cmd_i) { return cmd_i == static_cast<uint16_t>(cmd_e); }
+
+    // Named values for TTC_ACTION message's byte1 - Found two that do something.
+    // Other values seem to be silently ignored by the GDO.
+    ENUM_SPARSE(TtcActionCode, uint8_t,
+        (TOGGLE, 0x04), // pause/resume the countdown (HOLD <-> COUNTING/READY)
+        (DISABLE, 0x05)) // disable TTC entirely
+
+    inline bool operator==(const uint8_t val, const TtcActionCode& code) { return val == static_cast<uint8_t>(code); }
+    inline bool operator==(const TtcActionCode& code, const uint8_t val) { return val == static_cast<uint8_t>(code); }
 
     enum class IncrementRollingCode {
         NO,
@@ -147,6 +156,7 @@ namespace secplus2 {
 
         void query_status();
         void query_openings();
+        void send_ttc_action(TtcActionCode action);
         void query_paired_devices();
         void query_paired_devices(PairedDevice kind);
         void clear_paired_devices(PairedDevice kind);
