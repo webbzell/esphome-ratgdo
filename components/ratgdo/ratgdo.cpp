@@ -805,6 +805,19 @@ void RATGDOComponent::query_openings()
     this->protocol_->call(QueryOpenings { });
 }
 
+void RATGDOComponent::query_ttc_limit()
+{
+    this->protocol_->call(QueryTtcLimit { });
+}
+
+void RATGDOComponent::set_ttc_limit(uint16_t seconds)
+{
+    ESP_LOGD(TAG, "Set TTC limit: %ds", seconds);
+    this->protocol_->call(SetTtcLimit { seconds });
+    // The GDO normally confirms with a TTC_LIMIT broadcast, or
+    // when disabling, sends a special state value.
+}
+
 void RATGDOComponent::query_paired_devices()
 {
     this->protocol_->call(QueryPairedDevicesAll { });

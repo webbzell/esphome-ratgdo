@@ -74,6 +74,7 @@ typedef Parented<RATGDOComponent> RATGDOClient;
 const float DOOR_POSITION_UNKNOWN = -1.0;
 const float DOOR_DELTA_UNKNOWN = -2.0;
 const uint8_t PAIRED_DEVICES_UNKNOWN = 0xFF;
+const uint16_t TTC_LIMIT_UNKNOWN = 0xFFFF; // 0 is a valid limit (TTC disabled), so use 0xFFFF instead
 
 struct RATGDOStore {
     volatile uint32_t obstruction_low_count = 0; // count obstruction low pulses
@@ -172,7 +173,7 @@ public:
 
     single_observable<TtcState> ttc_state { TtcState::UNKNOWN };
     single_observable<uint16_t> ttc_countdown { 0 };
-    single_observable<uint16_t> ttc_limit { 0 };
+    single_observable<uint16_t> ttc_limit { TTC_LIMIT_UNKNOWN };
 
     static constexpr uint16_t TTC_COUNTDOWN_LOCAL_DECREMENT_INTERVAL = 5;
     static constexpr uint16_t TTC_COUNTDOWN_WATCHDOG_TIMEOUT = 90; // for explanation, see start_or_sync_ttc_countdown()
@@ -311,6 +312,8 @@ public:
     // button functionality
     void query_status();
     void query_openings();
+    void query_ttc_limit();
+    void set_ttc_limit(uint16_t seconds);
     void sync();
 
     using Component::cancel_interval;
