@@ -76,7 +76,12 @@ namespace protocol {
     struct ClearPairedDevices {
         PairedDevice kind;
     };
-    struct TtcToggleHoldTx {
+    struct TtcActionTx {
+    };
+    struct QueryTtcLimit {
+    };
+    struct SetTtcLimit {
+        uint16_t seconds; // 0 disables TTC entirely
     };
 
     // a poor man's sum-type, because C++
@@ -91,7 +96,9 @@ namespace protocol {
         (QueryPairedDevices, query_paired_devices),
         (QueryPairedDevicesAll, query_paired_devices_all),
         (ClearPairedDevices, clear_paired_devices),
-        (TtcToggleHoldTx, ttc_toggle_hold_tx), )
+        (TtcActionTx, ttc_action_tx),
+        (QueryTtcLimit, query_ttc_limit),
+        (SetTtcLimit, set_ttc_limit), )
 
     struct RollingCodeCounter {
         single_observable<uint32_t>* value;

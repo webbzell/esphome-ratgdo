@@ -86,6 +86,10 @@ namespace secplus2 {
             this->query_openings();
             synced = false;
         }
+        if (*this->ratgdo_->ttc_limit == TTC_LIMIT_UNKNOWN) {
+            this->query_ttc_limit();
+            synced = false;
+        }
         if (*this->ratgdo_->paired_total == PAIRED_DEVICES_UNKNOWN) {
             this->query_paired_devices(PairedDevice::ALL);
             synced = false;
@@ -196,13 +200,12 @@ namespace secplus2 {
             this->activate_learn();
         } else if (args.tag == Tag::inactivate_learn) {
             this->inactivate_learn();
-        } else if (args.tag == Tag::ttc_toggle_hold_tx) {
-            // The "HOLD" and "REL" (release) buttons on an 880LM wall control were
-            // pressed repeatedly, and the resulting messages were captured from the wire
-            // as log messages in ratgdo's web console. The same message was observed
-            // for both the HOLD and REL-ease functions. Therefore it's a toggle function.
-            // nibble=1, byte1=4, byte2=0: These values were determined empirically.
-            this->send_command(Command { CommandType::TTC_TOGGLE_HOLD, 1, 4, 0 });
+        } else if (args.tag == Tag::ttc_action_tx) {
+            this->send_ttc_action(TtcActionCode::TTC_TOGGLE);
+        } else if (args.tag == Tag::query_ttc_limit) {
+            this->query_ttc_limit();
+        } else if (args.tag == Tag::set_ttc_limit) {
+            this->set_ttc_limit(args.value.set_ttc_limit.seconds);
         }
         return { };
     }
@@ -224,6 +227,39 @@ namespace secplus2 {
     void Secplus2::query_openings()
     {
         this->send_command(CommandType::GET_OPENINGS);
+    }
+
+    // Both byte1 values were determined empirically. The "HOLD" and "REL"
+    // (release) buttons on an 880LM wall control were pressed repeatedly,
+    // and the resulting messages were captured as log messages in ratgdo's
+    // web console. The same message (byte1=4) was observed for both the HOLD
+    // and REL-ease functions, so it's a toggle. byte1=5 was found by probing
+    // other values and observing which one disabled TTC.
+    // nibble=1: matches every observed TTC_ACTION sender.
+    void Secplus2::send_ttc_action(TtcActionCode action)
+    {
+        this->send_command(Command { CommandType::TTC_ACTION, 1, static_cast<uint8_t>(action), 0 });
+    }
+
+    // For TTC messages, we send nibble=1 because that matches what the wall control sends.
+    void Secplus2::query_ttc_limit()
+    {
+        this->send_command(Command { CommandType::TTC_GET_LIMIT, 1 });
+    }
+
+    // seconds == 0 disables TTC entirely (TTC_SET_LIMIT{0} has never been
+    // observed on the wire - TTC_ACTION(DISABLE) is the confirmed mechanism).
+    // nibble=1: matches every observed TTC_SET_LIMIT sender.
+    // Used from a local Web UI while reverse-engineering this protocol, but
+    // omitted from this feature for safety.
+    void Secplus2::set_ttc_limit(uint16_t seconds)
+    {
+        if (seconds == 0) {
+            this->send_ttc_action(TtcActionCode::TTC_DISABLE);
+        } else {
+            this->send_command(Command { CommandType::TTC_SET_LIMIT, 1,
+                static_cast<uint8_t>(seconds >> 8), static_cast<uint8_t>(seconds & 0xff) });
+        }
     }
 
     void Secplus2::query_paired_devices()
@@ -428,10 +464,10 @@ namespace secplus2 {
             this->ratgdo_->received(MotionState::DETECTED);
         } else if (cmd.type == CommandType::OPENINGS) {
             this->ratgdo_->received(Openings { static_cast<uint16_t>((cmd.byte1 << 8) | cmd.byte2), cmd.nibble });
-        } else if (cmd.type == CommandType::TTC_SET_LIMIT) {
+        } else if (cmd.type == CommandType::TTC_LIMIT) {
             this->ratgdo_->received(TtcLimit { static_cast<uint16_t>((cmd.byte1 << 8) | cmd.byte2) });
-        } else if (cmd.type == CommandType::TTC_TOGGLE_HOLD) {
-            this->ratgdo_->received(TtcToggleHold { });
+        } else if (cmd.type == CommandType::TTC_ACTION) {
+            this->ratgdo_->received(TtcAction { cmd.byte1 });
         } else if (cmd.type == CommandType::TTC_COUNTDOWN) {
             this->ratgdo_->received(TtcCountdown { static_cast<uint16_t>((cmd.byte1 << 8) | cmd.byte2) });
         } else if (cmd.type == CommandType::PAIRED_DEVICES) {
