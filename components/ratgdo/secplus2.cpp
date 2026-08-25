@@ -86,6 +86,10 @@ namespace secplus2 {
             this->query_openings();
             synced = false;
         }
+        if (*this->ratgdo_->ttc_limit == TTC_LIMIT_UNKNOWN) {
+            this->query_ttc_limit();
+            synced = false;
+        }
         if (*this->ratgdo_->paired_total == PAIRED_DEVICES_UNKNOWN) {
             this->query_paired_devices(PairedDevice::ALL);
             synced = false;
@@ -198,6 +202,10 @@ namespace secplus2 {
             this->inactivate_learn();
         } else if (args.tag == Tag::ttc_action_tx) {
             this->send_ttc_action(TtcActionCode::TOGGLE);
+        } else if (args.tag == Tag::query_ttc_limit) {
+            this->query_ttc_limit();
+        } else if (args.tag == Tag::set_ttc_limit) {
+            this->set_ttc_limit(args.value.set_ttc_limit.seconds);
         }
         return { };
     }
@@ -231,6 +239,24 @@ namespace secplus2 {
     void Secplus2::send_ttc_action(TtcActionCode action)
     {
         this->send_command(Command { CommandType::TTC_ACTION, 1, static_cast<uint8_t>(action), 0 });
+    }
+
+    // For TTC messages, we send nibble=1 because that matches what the wall control sends.
+    void Secplus2::query_ttc_limit()
+    {
+        this->send_command(Command { CommandType::TTC_GET_LIMIT, 1 });
+    }
+
+    // seconds == 0 disables TTC entirely (TTC_SET_LIMIT{0} has never been
+    // observed on the wire - TTC_ACTION(DISABLE) is the confirmed mechanism).
+    void Secplus2::set_ttc_limit(uint16_t seconds)
+    {
+        if (seconds == 0) {
+            this->send_ttc_action(TtcActionCode::DISABLE);
+            return;
+        }
+        this->send_command(Command { CommandType::TTC_SET_LIMIT, 1,
+            static_cast<uint8_t>(seconds >> 8), static_cast<uint8_t>(seconds & 0xff) });
     }
 
     void Secplus2::query_paired_devices()
@@ -435,7 +461,7 @@ namespace secplus2 {
             this->ratgdo_->received(MotionState::DETECTED);
         } else if (cmd.type == CommandType::OPENINGS) {
             this->ratgdo_->received(Openings { static_cast<uint16_t>((cmd.byte1 << 8) | cmd.byte2), cmd.nibble });
-        } else if (cmd.type == CommandType::TTC_SET_LIMIT) {
+        } else if (cmd.type == CommandType::TTC_LIMIT) {
             this->ratgdo_->received(TtcLimit { static_cast<uint16_t>((cmd.byte1 << 8) | cmd.byte2) });
         } else if (cmd.type == CommandType::TTC_ACTION) {
             this->ratgdo_->received(TtcAction { cmd.byte1 });

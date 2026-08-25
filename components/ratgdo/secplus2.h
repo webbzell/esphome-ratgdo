@@ -55,9 +55,9 @@ namespace secplus2 {
         (PING, 0x392),
         (PING_RESP, 0x393),
 
-        (PAIR_2, 0x400),
-        (PAIR_2_RESP, 0x401),
-        (TTC_SET_LIMIT, 0x402), // Command to set TTC in seconds => (byte1<<8)+byte2
+        (TTC_GET_LIMIT, 0x400), // get current autoclose time limit
+        (TTC_LIMIT, 0x401), // current TTC limit in seconds => (byte1<<8)+byte2; same as TTC_SET_LIMIT
+        (TTC_SET_LIMIT, 0x402), // command to set TTC in seconds => (byte1<<8)+byte2
         (TTC_ACTION, 0x408), // byte1 = TtcActionCode (TOGGLE or DISABLE)
         (TTC_COUNTDOWN, 0x40a), // Periodic countdown broadcast message (sent every 60 seconds) while TTC counting down
         (GET_OPENINGS, 0x48b),
@@ -157,6 +157,8 @@ namespace secplus2 {
         void query_status();
         void query_openings();
         void send_ttc_action(TtcActionCode action);
+        void query_ttc_limit();
+        void set_ttc_limit(uint16_t seconds);
         void query_paired_devices();
         void query_paired_devices(PairedDevice kind);
         void clear_paired_devices(PairedDevice kind);
