@@ -313,6 +313,7 @@ public:
     // button functionality
     void query_status();
     void query_openings();
+    void query_ttc_state();
     void query_ttc_limit();
     void set_ttc_limit(uint16_t seconds);
     void query_ttc_countdown();

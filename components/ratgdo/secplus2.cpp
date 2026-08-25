@@ -86,6 +86,10 @@ namespace secplus2 {
             this->query_openings();
             synced = false;
         }
+        if (*this->ratgdo_->ttc_state == TtcState::UNKNOWN) {
+            this->query_ttc_state();
+            synced = false;
+        }
         if (*this->ratgdo_->ttc_limit == TTC_LIMIT_UNKNOWN) {
             this->query_ttc_limit();
             synced = false;
@@ -206,6 +210,8 @@ namespace secplus2 {
             this->inactivate_learn();
         } else if (args.tag == Tag::ttc_action_tx) {
             this->send_ttc_action(TtcActionCode::TOGGLE);
+        } else if (args.tag == Tag::query_ttc_state) {
+            this->query_ttc_state();
         } else if (args.tag == Tag::query_ttc_limit) {
             this->query_ttc_limit();
         } else if (args.tag == Tag::set_ttc_limit) {
@@ -248,6 +254,11 @@ namespace secplus2 {
     }
 
     // For TTC messages, we send nibble=1 because that matches what the wall control sends.
+    void Secplus2::query_ttc_state()
+    {
+        this->send_command(Command { CommandType::TTC_GET_STATE, 1 });
+    }
+
     void Secplus2::query_ttc_limit()
     {
         this->send_command(Command { CommandType::TTC_GET_LIMIT, 1 });
