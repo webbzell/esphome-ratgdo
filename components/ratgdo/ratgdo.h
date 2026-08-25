@@ -313,10 +313,16 @@ public:
     // button functionality
     void query_status();
     void query_openings();
+    void sync();
+
+    // TTC diagnostics/config. Deliberately not exposed via a YAML entity
+    // to keep the UI simple and uncluttered. It doesn't seem like the
+    // hold/release feature needs to expose all of these to the user,
+    // but they were handy to have during test/debugging and development.
+    void query_ttc_state();
     void query_ttc_limit();
     void set_ttc_limit(uint16_t seconds);
     void query_ttc_countdown();
-    void sync();
 
     using Component::cancel_interval;
     using Component::set_interval;

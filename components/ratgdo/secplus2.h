@@ -37,8 +37,9 @@ namespace secplus2 {
         (OBST_1, 0x084), // sent when an obstruction happens?
         (OBST_2, 0x085), // sent when an obstruction happens?
         (BATTERY_STATUS, 0x09d),
-        (PAIR_3, 0x0a0),
-        (PAIR_3_RESP, 0x0a1),
+
+        (TTC_GET_STATE, 0x0a0),
+        (TTC_STATE, 0x0a1),
 
         (LEARN, 0x181),
         (LOCK, 0x18c),
@@ -158,6 +159,7 @@ namespace secplus2 {
         void query_status();
         void query_openings();
         void send_ttc_action(TtcActionCode action);
+        void query_ttc_state();
         void query_ttc_limit();
         void set_ttc_limit(uint16_t seconds);
         void query_ttc_countdown();
