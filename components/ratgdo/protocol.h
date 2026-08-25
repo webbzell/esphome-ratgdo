@@ -78,6 +78,8 @@ namespace protocol {
     };
     struct TtcActionTx {
     };
+    struct QueryTtcState {
+    };
     struct QueryTtcLimit {
     };
     struct SetTtcLimit {
@@ -99,6 +101,7 @@ namespace protocol {
         (QueryPairedDevicesAll, query_paired_devices_all),
         (ClearPairedDevices, clear_paired_devices),
         (TtcActionTx, ttc_action_tx),
+        (QueryTtcState, query_ttc_state),
         (QueryTtcLimit, query_ttc_limit),
         (SetTtcLimit, set_ttc_limit),
         (QueryTtcCountdown, query_ttc_countdown), )
