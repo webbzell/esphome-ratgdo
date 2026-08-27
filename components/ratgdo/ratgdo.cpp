@@ -370,7 +370,6 @@ void RATGDOComponent::set_resolved_door_state(const DoorState door_state)
 
     if (door_state == DoorState::OPENING) {
         // door started opening
-        this->reset_ttc_state();
         if (prev_door_state == DoorState::CLOSING) {
             this->door_position_update();
             this->cancel_position_sync_callbacks();
@@ -389,7 +388,6 @@ void RATGDOComponent::set_resolved_door_state(const DoorState door_state)
         }
     } else if (door_state == DoorState::CLOSING) {
         // door started closing
-        this->reset_ttc_state();
         if (prev_door_state == DoorState::OPENING) {
             this->door_position_update();
             this->cancel_position_sync_callbacks();
@@ -407,7 +405,6 @@ void RATGDOComponent::set_resolved_door_state(const DoorState door_state)
                 this->schedule_door_position_sync();
         }
     } else if (door_state == DoorState::STOPPED) {
-        this->reset_ttc_state();
 #ifdef RATGDO_USE_ENCODER
         if (encoder_sensor_ == nullptr)
 #endif
@@ -429,7 +426,6 @@ void RATGDOComponent::set_resolved_door_state(const DoorState door_state)
     } else if (door_state == DoorState::CLOSED) {
         this->door_position = 0.0;
         this->cancel_position_sync_callbacks();
-        this->reset_ttc_state();
 #ifdef RATGDO_USE_ENCODER
         enc_intended_dir_ = 0; // close intent satisfied
 #endif
@@ -1214,17 +1210,6 @@ void RATGDOComponent::apply_ttc_toggle()
         // Release hold. Restart the local countdown.
         this->start_or_sync_ttc_countdown(*this->ttc_limit);
     }
-}
-
-// Resets local TTC state to UNKNOWN and cancels its timers.
-// TTC only runs while the door is fully open, so this is called
-// for all other states.
-void RATGDOComponent::reset_ttc_state()
-{
-    this->cancel_timeout(scheduler_ids::TTC_COUNTDOWN_WATCHDOG);
-    this->cancel_interval(scheduler_ids::TTC_COUNTDOWN_LOCAL_DECREMENT);
-    this->ttc_state = TtcState::UNKNOWN;
-    this->ttc_countdown = 0;
 }
 
 // Learn functions
