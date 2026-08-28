@@ -115,11 +115,6 @@ switch:
     name: "Learn"
     icon: mdi:plus-box
     entity_category: config
-  - platform: ratgdo
-    id: "${id_prefix}_auto_close"
-    type: auto_close
-    name: "Auto close"
-    icon: mdi:timer
 
 binary_sensor:
   - platform: ratgdo
@@ -306,3 +301,11 @@ button:
       then:
         lambda: !lambda |-
           id($id_prefix).door_toggle();
+
+  - platform: template
+    id: ${id_prefix}_auto_close_toggle
+    name: "Auto close toggle"
+    on_press:
+      then:
+        lambda: !lambda |-
+          id($id_prefix).ttc_toggle_hold();
