@@ -8,7 +8,6 @@ from .. import (
     RATGDO_CLIENT_SCHMEA,
     ratgdo_ns,
     register_ratgdo_child,
-    subscribe_ttc_state,
     subscribe_vehicle_arriving,
 )
 
@@ -22,7 +21,6 @@ TYPES = {
     "learn": SwitchType.RATGDO_LEARN,
     "led": SwitchType.RATGDO_LED,
     "reverse_encoder": SwitchType.RATGDO_REVERSE_ENCODER,
-    "auto_close": SwitchType.RATGDO_AUTO_CLOSE,  # only meaningful with protocol: secplusv2
 }
 
 
@@ -52,5 +50,3 @@ async def to_code(config):
     # are enabled, and the codegen emits the define to size the observable accordingly.
     if config[CONF_TYPE] == "led":
         subscribe_vehicle_arriving()
-    if config[CONF_TYPE] == "auto_close":
-        subscribe_ttc_state()

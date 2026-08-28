@@ -19,9 +19,6 @@ void RATGDOSwitch::dump_config()
     case SwitchType::RATGDO_REVERSE_ENCODER:
         ESP_LOGCONFIG(TAG, "  Type: Reverse Encoder");
         break;
-    case SwitchType::RATGDO_AUTO_CLOSE:
-        ESP_LOGCONFIG(TAG, "  Type: Auto Close");
-        break;
     default:
         break;
     }
@@ -56,12 +53,6 @@ void RATGDOSwitch::setup()
         }
         break;
 #endif
-    case SwitchType::RATGDO_AUTO_CLOSE:
-        this->publish_state(false); // switch starts in off position
-        this->parent_->subscribe_ttc_state([this](TtcState state) {
-            this->publish_state(ttc_is_ready(state) || ttc_is_counting(state));
-        });
-        break;
     default:
         break;
     }
@@ -92,19 +83,6 @@ void RATGDOSwitch::write_state(bool state)
         this->publish_state(state);
         break;
 #endif
-    case SwitchType::RATGDO_AUTO_CLOSE: { // Brace block needed to scope ts; open is forced here by clang-format
-        auto& ts = this->parent_->ttc_state;
-        if (!state) { // User wants to turn switch off (ENABLED_HOLDING)
-            if (ttc_is_ready(*ts) || ttc_is_counting(*ts)) {
-                this->parent_->ttc_toggle_hold();
-            }
-            // No else block needed - switch is already off (ENABLED_HOLDING/DISABLED/UNKNOWN).
-        } else { // User wants to turn switch on (RELEASE)
-            if (ttc_is_holding(*ts)) {
-                this->parent_->ttc_toggle_hold();
-            }
-        }
-    } break;
     default:
         break;
     }
