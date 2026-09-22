@@ -154,40 +154,37 @@ struct TtcStateMsg {
     uint8_t value;
 };
 
-// DISABLED is prefixed with TTC_ (unlike the other values here) because the
-// plain name collides with a #define macro in vendored ESP32 core headers
-// (e.g. Arduino's interrupt-mode DISABLED) on boards using framework:
-// arduino - enum class scoping doesn't protect against the preprocessor,
-// which substitutes any matching macro name wherever it appears as a
-// token, including inside this ENUM() invocation.
+// DEBUG: TTC_ prefix temporarily applied to every value here (not just
+// DISABLED) to test whether prefixing this specific enum (the internal
+// state enum) is what breaks OTA boot.
 ENUM(TtcState, uint8_t,
-    (UNKNOWN, 0),
-    (ENABLED_READY, 1),
-    (ENABLED_COUNTING, 2),
-    (ENABLED_HOLDING, 3),
+    (TTC_UNKNOWN, 0),
+    (TTC_ENABLED_READY, 1),
+    (TTC_ENABLED_COUNTING, 2),
+    (TTC_ENABLED_HOLDING, 3),
     (TTC_DISABLED, 4),
-    (INITIALIZING_ENABLED, 5),
-    (INITIALIZING_DISABLED, 6),
-    (CLOSING_ALERT, 7)) // countdown ended; light-flash/beeper warning before the door actually closes
+    (TTC_INITIALIZING_ENABLED, 5),
+    (TTC_INITIALIZING_DISABLED, 6),
+    (TTC_CLOSING_ALERT, 7)) // countdown ended; light-flash/beeper warning before the door actually closes
 
 // True when TTC is enabled but not currently active: the door isn't open,
 // no broadcast has been seen yet this cycle, or the watchdog assumed comms
 // failure and gave up.
 inline constexpr bool ttc_is_ready(TtcState state)
 {
-    return state == TtcState::ENABLED_READY;
+    return state == TtcState::TTC_ENABLED_READY;
 }
 
 // True when counting down
 inline constexpr bool ttc_is_counting(TtcState state)
 {
-    return state == TtcState::ENABLED_COUNTING;
+    return state == TtcState::TTC_ENABLED_COUNTING;
 }
 
 // True when the door is holding open (and the countdown can be restarted).
 inline constexpr bool ttc_is_holding(TtcState state)
 {
-    return state == TtcState::ENABLED_HOLDING;
+    return state == TtcState::TTC_ENABLED_HOLDING;
 }
 
 // True when TTC is in one of the ENABLED_* states (ready, counting, or
@@ -198,13 +195,13 @@ inline constexpr bool ttc_is_enabled(TtcState state)
 }
 
 // True when the GDO hasn't confirmed a real TTC state yet - a fault/pending
-// signal (see INITIALIZING_ENABLED/INITIALIZING_DISABLED in secplus2.h),
-// not a state to act on. TTC_ACTION commands sent while in this state are
-// silently dropped by the GDO, so nothing here should attempt to change
-// TTC state - only ever reflect/reject.
+// signal (see TTC_INITIALIZING_ENABLED/TTC_INITIALIZING_DISABLED in
+// secplus2.h), not a state to act on. TTC_ACTION commands sent while in
+// this state are silently dropped by the GDO, so nothing here should
+// attempt to change TTC state - only ever reflect/reject.
 inline constexpr bool ttc_is_initializing(TtcState state)
 {
-    return state == TtcState::INITIALIZING_ENABLED || state == TtcState::INITIALIZING_DISABLED;
+    return state == TtcState::TTC_INITIALIZING_ENABLED || state == TtcState::TTC_INITIALIZING_DISABLED;
 }
 
 } // namespace esphome::ratgdo

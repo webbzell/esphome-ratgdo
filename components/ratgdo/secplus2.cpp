@@ -86,7 +86,7 @@ namespace secplus2 {
             this->query_openings();
             synced = false;
         }
-        if (*this->ratgdo_->ttc_state == TtcState::UNKNOWN) {
+        if (*this->ratgdo_->ttc_state == TtcState::TTC_UNKNOWN) {
             this->query_ttc_state();
             synced = false;
         }

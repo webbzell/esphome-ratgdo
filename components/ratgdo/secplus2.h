@@ -81,19 +81,22 @@ namespace secplus2 {
 
     // Named values for TTC_STATE message's byte1. (All are sent by GDO, except for 1.)
     //
-    // DEBUG: TTC_ prefix temporarily applied to every value here (not just
-    // DISABLED) to test whether prefixing this specific enum (the
-    // over-the-wire one) is what breaks OTA boot.
+    // DISABLED is prefixed with TTC_ (unlike the other values here) because
+    // the plain name can collide with a #define macro in vendored ESP32
+    // core headers on boards using framework: arduino - enum class scoping
+    // doesn't protect against the preprocessor, which substitutes any
+    // matching macro name wherever it appears as a token, including inside
+    // this ENUM_SPARSE() invocation.
     ENUM_SPARSE(TtcStateCode, uint8_t,
-        (TTC_UNKNOWN, 0),
-        (TTC_WALL_CONTROL_ACK, 0x01), // sent by a wall control acknowledging a TTC_STATE broadcast
-        (TTC_ENABLED_COUNTING, 0x02), // TTC is configured and counting down
+        (UNKNOWN, 0),
+        (WALL_CONTROL_ACK, 0x01), // sent by a wall control acknowledging a TTC_STATE broadcast
+        (ENABLED_COUNTING, 0x02), // TTC is configured and counting down
         (TTC_DISABLED, 0x09), // TTC is disabled (limit is set to 0)
-        (TTC_ENABLED_HOLDING, 0x0a), // TTC is configured, but on hold
-        (TTC_CLOSING_ALERT, 0x0b), // Countdown ended, light-flash/beeper warning pre-close period
-        (TTC_ENABLED_READY, 0x0c), // TTC is configured, but not running
-        (TTC_INITIALIZING_ENABLED, 0x0d), // TTC starting up, will end up enabled. Transitions to ENABLED_* later.
-        (TTC_INITIALIZING_DISABLED, 0x0e)) // Same as TTC_INITIALIZING_ENABLED, but transitions to TTC_DISABLED later.
+        (ENABLED_HOLDING, 0x0a), // TTC is configured, but on hold
+        (CLOSING_ALERT, 0x0b), // Countdown ended, light-flash/beeper warning pre-close period
+        (ENABLED_READY, 0x0c), // TTC is configured, but not running
+        (INITIALIZING_ENABLED, 0x0d), // TTC starting up, will end up enabled. Transitions to ENABLED_* later.
+        (INITIALIZING_DISABLED, 0x0e)) // Same as INITIALIZING_ENABLED, but transitions to TTC_DISABLED later.
 
     inline bool operator==(const uint8_t val, const TtcStateCode& code) { return val == static_cast<uint8_t>(code); }
     inline bool operator==(const TtcStateCode& code, const uint8_t val) { return val == static_cast<uint8_t>(code); }
