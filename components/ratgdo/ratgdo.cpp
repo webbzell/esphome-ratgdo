@@ -719,28 +719,28 @@ void RATGDOComponent::received(const TtcStateMsg msg)
 
     TtcState state;
     switch (code) {
-    case TtcStateCode::ENABLED_COUNTING:
+    case TtcStateCode::TTC_ENABLED_COUNTING:
         state = TtcState::ENABLED_COUNTING;
         break;
-    case TtcStateCode::ENABLED_HOLDING:
+    case TtcStateCode::TTC_ENABLED_HOLDING:
         state = TtcState::ENABLED_HOLDING;
         break;
-    case TtcStateCode::ENABLED_READY:
+    case TtcStateCode::TTC_ENABLED_READY:
         state = TtcState::ENABLED_READY;
         break;
     case TtcStateCode::TTC_DISABLED:
         state = TtcState::TTC_DISABLED;
         break;
-    case TtcStateCode::INITIALIZING_ENABLED:
+    case TtcStateCode::TTC_INITIALIZING_ENABLED:
         state = TtcState::INITIALIZING_ENABLED;
         break;
-    case TtcStateCode::INITIALIZING_DISABLED:
+    case TtcStateCode::TTC_INITIALIZING_DISABLED:
         state = TtcState::INITIALIZING_DISABLED;
         break;
-    case TtcStateCode::CLOSING_ALERT:
+    case TtcStateCode::TTC_CLOSING_ALERT:
         state = TtcState::CLOSING_ALERT;
         break;
-    case TtcStateCode::WALL_CONTROL_ACK:
+    case TtcStateCode::TTC_WALL_CONTROL_ACK:
         // Not a real TTC state - just a wall control acknowledging a
         // TTC_STATE broadcast it observed. Nothing to update.
         return;
