@@ -229,7 +229,7 @@ void RATGDOComponent::restart_ttc_watchdog()
         // Assume comms failure - state, limit, and countdown are no longer
         // trustworthy, so fall back to UNKNOWN and re-sync, same as during boot
         this->stop_ttc_watchdog_and_decrementer();
-        this->set_ttc_state_and_countdown(TtcState::TTC_UNKNOWN, TTC_COUNTDOWN_UNKNOWN);
+        this->set_ttc_state_and_countdown(TtcState::UNKNOWN, TTC_COUNTDOWN_UNKNOWN);
         this->ttc_limit = TTC_LIMIT_UNKNOWN;
         this->sync();
     });
@@ -668,7 +668,7 @@ void RATGDOComponent::received(const TtcCountdown countdown)
     // silently keeping it and hiding that the door is still counting down.
     if (ttc_is_holding(*this->ttc_state)) {
         ESP_LOGW(TAG, "TTC countdown broadcast received while holding - GDO is still counting; correcting local state");
-        this->set_ttc_state_and_countdown(TtcState::TTC_ENABLED_COUNTING, countdown.seconds);
+        this->set_ttc_state_and_countdown(TtcState::ENABLED_COUNTING, countdown.seconds);
         this->start_ttc_decrementer();
     } else {
         this->set_ttc_state_and_countdown(*this->ttc_state, countdown.seconds);
@@ -719,28 +719,28 @@ void RATGDOComponent::received(const TtcStateMsg msg)
 
     TtcState state;
     switch (code) {
-    case TtcStateCode::TTC_ENABLED_COUNTING:
-        state = TtcState::TTC_ENABLED_COUNTING;
+    case TtcStateCode::ENABLED_COUNTING:
+        state = TtcState::ENABLED_COUNTING;
         break;
-    case TtcStateCode::TTC_ENABLED_HOLDING:
-        state = TtcState::TTC_ENABLED_HOLDING;
+    case TtcStateCode::ENABLED_HOLDING:
+        state = TtcState::ENABLED_HOLDING;
         break;
-    case TtcStateCode::TTC_ENABLED_READY:
-        state = TtcState::TTC_ENABLED_READY;
+    case TtcStateCode::ENABLED_READY:
+        state = TtcState::ENABLED_READY;
         break;
     case TtcStateCode::TTC_DISABLED:
         state = TtcState::TTC_DISABLED;
         break;
-    case TtcStateCode::TTC_INITIALIZING_ENABLED:
-        state = TtcState::TTC_INITIALIZING_ENABLED;
+    case TtcStateCode::INITIALIZING_ENABLED:
+        state = TtcState::INITIALIZING_ENABLED;
         break;
-    case TtcStateCode::TTC_INITIALIZING_DISABLED:
-        state = TtcState::TTC_INITIALIZING_DISABLED;
+    case TtcStateCode::INITIALIZING_DISABLED:
+        state = TtcState::INITIALIZING_DISABLED;
         break;
-    case TtcStateCode::TTC_CLOSING_ALERT:
-        state = TtcState::TTC_CLOSING_ALERT;
+    case TtcStateCode::CLOSING_ALERT:
+        state = TtcState::CLOSING_ALERT;
         break;
-    case TtcStateCode::TTC_WALL_CONTROL_ACK:
+    case TtcStateCode::WALL_CONTROL_ACK:
         // Not a real TTC state - just a wall control acknowledging a
         // TTC_STATE broadcast it observed. Nothing to update.
         return;
@@ -1356,7 +1356,7 @@ void RATGDOComponent::ttc_toggle_hold()
     // the next state is (COUNTING or READY) and when to start counting.
     if (!ttc_is_holding(*this->ttc_state)) {
         this->stop_ttc_watchdog_and_decrementer();
-        this->set_ttc_state_and_countdown(TtcState::TTC_ENABLED_HOLDING, 0);
+        this->set_ttc_state_and_countdown(TtcState::ENABLED_HOLDING, 0);
     }
 }
 

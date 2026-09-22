@@ -86,7 +86,7 @@ namespace secplus2 {
             this->query_openings();
             synced = false;
         }
-        if (*this->ratgdo_->ttc_state == TtcState::TTC_UNKNOWN) {
+        if (*this->ratgdo_->ttc_state == TtcState::UNKNOWN) {
             this->query_ttc_state();
             synced = false;
         }
@@ -209,7 +209,7 @@ namespace secplus2 {
         } else if (args.tag == Tag::inactivate_learn) {
             this->inactivate_learn();
         } else if (args.tag == Tag::ttc_action_tx) {
-            this->send_ttc_action(TtcActionCode::TTC_TOGGLE);
+            this->send_ttc_action(TtcActionCode::TOGGLE);
         } else if (args.tag == Tag::query_ttc_state) {
             this->query_ttc_state();
         } else if (args.tag == Tag::query_ttc_limit) {
@@ -273,7 +273,7 @@ namespace secplus2 {
     void Secplus2::set_ttc_limit(uint16_t seconds)
     {
         if (seconds == 0) {
-            this->send_ttc_action(TtcActionCode::TTC_DISABLE);
+            this->send_ttc_action(TtcActionCode::DISABLE);
         } else {
             this->send_command(Command { CommandType::TTC_SET_LIMIT, 1,
                 static_cast<uint8_t>(seconds >> 8), static_cast<uint8_t>(seconds & 0xff) });

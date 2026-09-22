@@ -14,21 +14,21 @@ static const char* const TAG = "ratgdo.text_sensor";
 static ESPHOME_PGM_P ttc_state_display_name(TtcState state)
 {
     switch (state) {
-    case TtcState::TTC_ENABLED_READY:
+    case TtcState::ENABLED_READY:
         return ESPHOME_PSTR("Ready");
-    case TtcState::TTC_ENABLED_COUNTING:
+    case TtcState::ENABLED_COUNTING:
         return ESPHOME_PSTR("Counting");
-    case TtcState::TTC_ENABLED_HOLDING:
+    case TtcState::ENABLED_HOLDING:
         return ESPHOME_PSTR("Holding");
     case TtcState::TTC_DISABLED:
         return ESPHOME_PSTR("Disabled");
-    case TtcState::TTC_INITIALIZING_ENABLED:
+    case TtcState::INITIALIZING_ENABLED:
         return ESPHOME_PSTR("Init (enabled)");
-    case TtcState::TTC_INITIALIZING_DISABLED:
+    case TtcState::INITIALIZING_DISABLED:
         return ESPHOME_PSTR("Init (disabled)");
-    case TtcState::TTC_CLOSING_ALERT:
+    case TtcState::CLOSING_ALERT:
         return ESPHOME_PSTR("Closing alert");
-    case TtcState::TTC_UNKNOWN:
+    case TtcState::UNKNOWN:
     default:
         return ESPHOME_PSTR("Unknown");
     }

@@ -172,7 +172,7 @@ public:
     single_observable<MotionState> motion_state { MotionState::UNKNOWN };
     single_observable<LearnState> learn_state { LearnState::UNKNOWN };
 
-    observable<TtcState, RATGDO_MAX_TTC_STATE_SUBSCRIBERS> ttc_state { TtcState::TTC_UNKNOWN };
+    observable<TtcState, RATGDO_MAX_TTC_STATE_SUBSCRIBERS> ttc_state { TtcState::UNKNOWN };
     single_observable<uint16_t> ttc_countdown { TTC_COUNTDOWN_UNKNOWN };
     single_observable<uint16_t> ttc_limit { TTC_LIMIT_UNKNOWN };
 
